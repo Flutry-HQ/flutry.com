@@ -1,0 +1,30 @@
+{
+  "welcome": "asdsad",
+  "error": {
+    "notfound": {
+      "title": "404",
+      "headline": "Az oldal nem található",
+      "description": "A keresett oldal nem létezik, áthelyezték vagy eltávolították.",
+      "button": "Vissza a főoldalra",
+      "button2": "Vissza a vezérlőpultra"
+    },
+    "boundary": {
+      "title": "Hiba történt",
+      "headline": "Váratlan rendszerhiba lépett fel",
+      "description": "Hiba történt az oldal betöltése közben. Kérjük, próbáld meg újra később.",
+      "button": "Vissza a főoldalra"
+    },
+    "rate_limited": {
+      "title": "Túl sok kérés",
+      "headline": "Kérjük, várj egy pillanatot",
+      "description": "Rövid idő alatt túl sok kérést küldtél. Várj egy kicsit, majd próbáld újra.",
+      "button": "Vissza a főoldalra"
+    },
+    "internal_server_error": {
+      "title": "Szerverhiba",
+      "headline": "A rendszer jelenleg nem elérhető",
+      "description": "Hiba történt a szerver működése közben. Az adataid biztonságban vannak. Kérjük, próbáld meg újra később.",
+      "button": "Vissza a főoldalra"
+    }
+  }
+}

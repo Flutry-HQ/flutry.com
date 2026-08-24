@@ -1,0 +1,17 @@
+{
+  "title": "Flutry v1.0.0",
+  "index": "Welcome",
+  "categories": [
+    {
+      "title": "Getting Started",
+      "folder": "getting-started",
+      "slug": "getting-started",
+      "items": [
+        {
+          "title": "Installation",
+          "slug": "installation"
+        }
+      ]
+    }
+  ]
+}

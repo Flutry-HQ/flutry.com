@@ -20,7 +20,7 @@ yarn dev
 ```
 
 A helyi dokumentációs oldal a fejlesztői szerver által kiírt címen érhető el.
-https://flutry.com
+https://flutry.otamoon.hu
 
 ## Megjegyzés
 

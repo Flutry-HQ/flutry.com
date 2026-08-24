@@ -1,0 +1,30 @@
+{
+  "welcome": "Anyéd",
+  "error": {
+    "notfound": {
+      "title": "404",
+      "headline": "Page not found",
+      "description": "The page you are looking for does not exist, has been moved, or has been removed.",
+      "button": "Back to homepage",
+      "button2": "Back to dashboard"
+    },
+    "boundary": {
+      "title": "Something went wrong",
+      "headline": "An unexpected system error occurred",
+      "description": "An error occurred while loading this section of the application. Please try again later.",
+      "button": "Back to homepage"
+    },
+    "rate_limited": {
+      "title": "Too many requests",
+      "headline": "Please wait a moment",
+      "description": "You have sent too many requests in a short period of time. Please wait a moment before trying again.",
+      "button": "Back to homepage"
+    },
+    "internal_server_error": {
+      "title": "Server error",
+      "headline": "The system is currently unavailable",
+      "description": "A server error occurred while processing your request. Your data is safe. Please try again later.",
+      "button": "Back to homepage"
+    }
+  }
+}
