@@ -40,7 +40,7 @@ export default function DocsVersionLayout() {
   const data = useLoaderData<typeof loader>();
 
   return (
-    <main id="docs" className="relative min-h-[calc(100vh-4rem)] bg-slate-950">
+    <main id="docs" className="relative min-h-[calc(100vh-4rem)] bg-[#08090D]">
       <Sidebar_Left versions={data.versions} currentVersion={data.currentVersion} categories={data.categories} />
 
       <MDXProvider components={mdxComponents}>

@@ -20,7 +20,7 @@ export default function Navbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-slate-900/80 backdrop-blur-xl">
+      <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-[#08090D] backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-7xl items-center px-4 sm:px-6 lg:px-8">
           <Link to="/" aria-label={`${config.TITLE} home`} className="group flex shrink-0 items-center gap-2.5">
             <div className="relative">

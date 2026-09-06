@@ -28,7 +28,7 @@ export default function Sidebar_Left({ versions, currentVersion, categories }: S
       {/* Sidebar */}
       <aside
         className={[
-          'fixed left-0 top-[4rem] z-40 flex h-[calc(100vh-4rem)] w-[20rem] flex-col overflow-hidden border-r border-slate-800/60 bg-slate-900/80 p-4 shadow-2xl shadow-black/20 backdrop-blur-xl transition-all duration-300 ease-in-out',
+          'fixed left-0 top-[4rem] z-40 flex h-[calc(100vh-4rem)] w-[20rem] flex-col overflow-hidden border-r border-slate-800/60 bg-[#08090D] p-4 shadow-2xl shadow-black/20 backdrop-blur-xl transition-all duration-300 ease-in-out',
           mobileOpen ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0',
           'lg:translate-x-0 lg:opacity-100',
         ].join(' ')}
@@ -42,7 +42,7 @@ export default function Sidebar_Left({ versions, currentVersion, categories }: S
             type="button"
             onClick={() => setMobileOpen(false)}
             aria-label="Close documentation navigation"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-800 hover:text-slate-200 lg:hidden"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-[#12141d] hover:text-slate-200 lg:hidden"
           >
             <ChevronLeft size={18} />
           </button>
@@ -71,7 +71,7 @@ export default function Sidebar_Left({ versions, currentVersion, categories }: S
             value={currentVersion.slug}
             classNames={{
               triggerOpen: 'border-slate-600',
-              itemSelected: 'bg-slate-500/15 text-slate-300',
+              itemSelected: 'bg-[#12141d] text-slate-300',
             }}
           />
         </div>
@@ -86,8 +86,8 @@ export default function Sidebar_Left({ versions, currentVersion, categories }: S
               className={[
                 'rounded-lg px-3 py-2 text-sm transition',
                 location.pathname === `/docs/${currentVersion.slug}`
-                  ? 'bg-slate-800 text-white'
-                  : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200',
+                  ? 'bg-[#12141d] text-white'
+                  : 'text-slate-400 hover:bg-[#12141d]/60 hover:text-slate-200',
               ].join(' ')}
             >
               {currentVersion.index ?? 'Welcome'}
@@ -109,7 +109,7 @@ export default function Sidebar_Left({ versions, currentVersion, categories }: S
                         onClick={() => setMobileOpen(false)}
                         className={[
                           'rounded-lg px-3 py-2 text-sm transition',
-                          active ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200',
+                          active ? 'bg-[#12141d] text-white' : 'text-slate-400 hover:bg-[#12141d]/60 hover:text-slate-200',
                         ].join(' ')}
                       >
                         {item.title}
@@ -128,7 +128,7 @@ export default function Sidebar_Left({ versions, currentVersion, categories }: S
         type="button"
         onClick={() => setMobileOpen(true)}
         aria-label="Open documentation navigation"
-        className="fixed left-4 top-[5rem] z-20 flex h-9 w-9 items-center justify-center rounded-lg border border-slate-800/80 bg-slate-900/90 text-slate-400 shadow-lg shadow-black/20 backdrop-blur-xl transition-all duration-300 hover:bg-slate-800 hover:text-white lg:hidden"
+        className="fixed left-4 top-[5rem] z-20 flex h-9 w-9 items-center justify-center rounded-lg border border-slate-800/80 bg-slate-900/90 text-slate-400 shadow-lg shadow-black/20 backdrop-blur-xl transition-all duration-300 hover:bg-[#12141d] hover:text-white lg:hidden"
       >
         <ChevronRight size={18} />
       </button>

@@ -6,7 +6,7 @@
 
 html,
 body {
-  @apply bg-slate-950 text-gray-200 font-sans antialiased font-medium;
+  @apply bg-[#08090D] text-gray-200 font-sans antialiased font-medium;
 }
 
 #root {
@@ -129,5 +129,5 @@ svg#loader circle {
   padding: 1rem !important;
   border-radius: 0.8rem !important;
   border: #192539 1px solid;
-  background-color: #0c1327 !important;
+  background-color: #12141d !important;
 }

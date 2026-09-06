@@ -28,7 +28,7 @@ export default function Sidebar_Right() {
             flex-col
             overflow-hidden
             border-l border-slate-800/60
-            bg-slate-900/80
+           bg-[#08090D]
             p-4
             shadow-2xl shadow-black/20
             backdrop-blur-xl
