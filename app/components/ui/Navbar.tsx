@@ -69,6 +69,15 @@ export default function Navbar() {
             >
               <FaGithub size={22} strokeWidth={1.8} />
             </a>
+            <a
+              href="https://discord.gg/U6GEav2SdE"
+              target="_blank"
+              rel="noreferrer"
+              aria-label="Discord"
+              className="hidden h-9 w-9 items-center justify-center rounded-lg text-white/80 transition-all duration-200 hover:bg-white/[0.08] hover:text-white sm:flex"
+            >
+              <FaDiscord size={22} strokeWidth={1.8} />
+            </a>
 
             <button
               type="button"
@@ -103,7 +112,7 @@ export default function Navbar() {
                 stiffness: 340,
                 damping: 34,
               }}
-              className="fixed inset-y-0 right-0 z-[61] flex w-full max-w-sm flex-col border-l border-white/[0.07] bg-slate-900/60 backdrop-blur-2xl lg:hidden"
+              className="fixed inset-y-0 right-0 z-[61] flex w-full max-w-sm flex-col border-l border-white/[0.07] bg-[#08090D] backdrop-blur-2xl lg:hidden"
             >
               <div className="flex h-16 shrink-0 items-center justify-between border-b border-white/[0.06] px-4">
                 <Link to="/" onClick={() => setOpenNav(false)} className="flex items-center gap-2.5">
@@ -152,7 +161,7 @@ export default function Navbar() {
                   GitHub
                 </a>
                 <a
-                  href="https://github.com/Flutry-HQ"
+                  href="https://discord.gg/U6GEav2SdE"
                   target="_blank"
                   rel="noreferrer"
                   className="flex items-center gap-3 rounded-xl px-4 py-3.5 text-sm font-medium text-white/55 transition-colors hover:bg-white/[0.035] hover:text-white"
