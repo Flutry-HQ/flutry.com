@@ -459,14 +459,14 @@ function FinalCta() {
         <p className="mx-auto mt-4 max-w-md text-[var(--ink-dim)]">Install the CLI and have a running project before your coffee's ready.</p>
         <div className="mt-9 flex flex-wrap items-center justify-center gap-4">
           <Link
-            to="/docs/getting-started"
+            to="/docs/latest/getting-started/quick-start"
             className="inline-flex items-center gap-2 rounded-sm bg-[var(--accent)] px-5 py-3 text-sm font-medium text-white transition-colors duration-200 hover:bg-[#6B8AFF]"
           >
             <Rocket size={16} strokeWidth={2} />
             Get started
           </Link>
           <Link
-            to="/docs"
+            to="/docs/latest"
             className="inline-flex items-center gap-2 rounded-sm border border-[var(--line)] px-5 py-3 text-sm font-medium text-[var(--ink)] transition-colors duration-200 hover:border-white/20 hover:bg-white/[0.03]"
           >
             Documentation
@@ -488,30 +488,7 @@ function Footer() {
             <div className="font-display text-lg font-semibold text-white">Flutry</div>
             <p className="mt-3 max-w-[20ch] text-sm text-[var(--ink-faint)]">A typed backend framework for services that outgrow a single file.</p>
           </div>
-
-          <FooterColumn
-            title="Product"
-            links={[
-              { label: 'Features', to: '/#features' },
-              { label: 'Packages', to: '/#architecture' },
-              { label: 'Documentation', to: '/docs' },
-            ]}
-          />
-          <FooterColumn
-            title="Resources"
-            links={[
-              { label: 'Getting started', to: '/docs/getting-started' },
-              { label: 'CLI reference', to: '/docs/cli' },
-              { label: 'Changelog', to: '/docs/changelog' },
-            ]}
-          />
-          <FooterColumn
-            title="Community"
-            links={[
-              { label: 'GitHub', to: 'https://github.com/Flutry-HQ', external: true },
-              { label: 'Discord', to: 'https://github.com/Flutry-HQ', external: true },
-            ]}
-          />
+          <FooterColumn title="Community" links={[{ label: 'GitHub', to: 'https://github.com/Flutry-HQ', external: true }]} />
         </div>
 
         <div className="mt-14 flex flex-col-reverse items-center justify-between gap-4 border-t border-[var(--line)] pt-6 sm:flex-row">
