@@ -7,10 +7,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
 User-agent: *
 Allow: /
 
-# Crawl-delay
-Crawl-delay: 1
-
-
 Sitemap: ${origin}/sitemap.xml
 `.trim();
 

@@ -1,4 +1,4 @@
-import { type LoaderFunctionArgs, useLoaderData } from 'react-router';
+import { type LoaderFunctionArgs, type MetaFunction, useLoaderData } from 'react-router';
 
 import MDXContent from '~/components/docs/MDXContent';
 import { hasDocsContent } from '~/utils/docs/mdxModules';
@@ -14,8 +14,29 @@ export async function loader({ params }: LoaderFunctionArgs) {
   const { version } = getVersion(versionSlug);
   getVersionMeta(version); // validates the version directory exists
 
-  return { mdxPath: `${version.folder}/index`, version: version.title };
+  return { mdxPath: `${version.folder}/index`, version: version.title, versionSlug };
 }
+
+export const meta: MetaFunction<typeof loader> = ({ loaderData }) => {
+  if (!loaderData) return [];
+
+  const description = `Official Flutry ${loaderData.version} documentation for the TypeScript Node.js backend framework.`;
+  const url = `/docs/${loaderData.versionSlug}`;
+
+  return [
+    { title: `${loaderData.version} Documentation | Flutry` },
+    { name: 'description', content: description },
+    { name: 'robots', content: 'index, follow' },
+    { property: 'og:title', content: `${loaderData.version} Documentation | Flutry` },
+    { property: 'og:description', content: description },
+    { property: 'og:type', content: 'website' },
+    { property: 'og:url', content: url },
+    { name: 'twitter:card', content: 'summary' },
+    { name: 'twitter:title', content: `${loaderData.version} Documentation | Flutry` },
+    { name: 'twitter:description', content: description },
+    { tagName: 'link', rel: 'canonical', href: url },
+  ];
+};
 
 export default function DocsIndex() {
   const { mdxPath, version } = useLoaderData<typeof loader>();

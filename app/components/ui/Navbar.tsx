@@ -69,15 +69,6 @@ export default function Navbar() {
             >
               <FaGithub size={22} strokeWidth={1.8} />
             </a>
-            <a
-              href="https://github.com/Flutry-HQ"
-              target="_blank"
-              rel="noreferrer"
-              aria-label="Discord"
-              className="hidden h-9 w-9 items-center justify-center rounded-lg text-white/80 transition-all duration-200 hover:bg-white/[0.08] hover:text-white sm:flex"
-            >
-              <FaDiscord size={22} strokeWidth={1.8} />
-            </a>
 
             <button
               type="button"

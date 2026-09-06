@@ -23,10 +23,7 @@ import PagePreloader from './components/common/PagePreloader';
 import { AnimatePresence } from 'motion/react';
 import Spinner from './components/common/Spinner';
 import config from '../config';
-import { CircleXIcon, HomeIcon, TriangleAlert } from 'lucide-react';
-import { getLanguage } from './utils/services/language/server';
-import { loadMessages } from './utils/services/language/loader';
-import { LanguageProvider, useLanguage } from './utils/services/language/context';
+import { HomeIcon } from 'lucide-react';
 
 export const links: LinksFunction = () => [
   // 🔤 Fonts
@@ -86,19 +83,21 @@ export const links: LinksFunction = () => [
 export const meta: MetaFunction = () => {
   return [
     { title: config.TITLE },
-    { name: 'description', content: config.TITLE },
-    // 🔹 Robots
+    { name: 'description', content: config.DESCRIPTION },
+    { name: 'keywords', content: 'Flutry, Node.js, TypeScript, Fastify, Sequelize, Redis, Socket.IO, backend framework' },
     { name: 'robots', content: 'index, follow' },
-    // 🔹 Open Graph (Facebook, Discord, etc.)
     { property: 'og:title', content: config.TITLE },
-    { property: 'og:description', content: config.TITLE },
+    { property: 'og:description', content: config.DESCRIPTION },
     { property: 'og:type', content: 'website' },
-    { property: 'og:image', content: '' },
-    // 🔹 Twitter / X cards
+    { property: 'og:url', content: config.SITE_URL },
+    { property: 'og:site_name', content: config.TITLE },
+    { property: 'og:image', content: `${config.SITE_URL}${config.SOCIAL_IMAGE}` },
+    { property: 'og:image:alt', content: 'Flutry logo' },
     { name: 'twitter:card', content: 'summary_large_image' },
     { name: 'twitter:title', content: config.TITLE },
-    { name: 'twitter:description', content: config.TITLE },
-    { name: 'twitter:image', content: '' },
+    { name: 'twitter:description', content: config.DESCRIPTION },
+    { name: 'twitter:image', content: `${config.SITE_URL}${config.SOCIAL_IMAGE}` },
+    { tagName: 'link', rel: 'canonical', href: config.SITE_URL },
   ];
 };
 

@@ -1,4 +1,4 @@
-import { type LoaderFunctionArgs, useLoaderData } from 'react-router';
+import { type LoaderFunctionArgs, type MetaFunction, useLoaderData } from 'react-router';
 
 import MDXContent from '~/components/docs/MDXContent';
 import { hasDocsContent } from '~/utils/docs/mdxModules';
@@ -21,8 +21,32 @@ export async function loader({ params }: LoaderFunctionArgs) {
     title: page.title,
     category: category.title,
     version: version.title,
+    versionSlug,
+    categorySlug,
+    pageSlug,
   };
 }
+
+export const meta: MetaFunction<typeof loader> = ({ loaderData }) => {
+  if (!loaderData) return [];
+
+  const description = `${loaderData.title} in Flutry ${loaderData.version}. Learn how to build TypeScript Node.js services with Flutry.`;
+  const url = `/docs/${loaderData.versionSlug}/${loaderData.categorySlug}/${loaderData.pageSlug}`;
+
+  return [
+    { title: `${loaderData.title} | Flutry` },
+    { name: 'description', content: description },
+    { name: 'robots', content: 'index, follow' },
+    { property: 'og:title', content: `${loaderData.title} | Flutry` },
+    { property: 'og:description', content: description },
+    { property: 'og:type', content: 'article' },
+    { property: 'og:url', content: url },
+    { name: 'twitter:card', content: 'summary' },
+    { name: 'twitter:title', content: `${loaderData.title} | Flutry` },
+    { name: 'twitter:description', content: description },
+    { tagName: 'link', rel: 'canonical', href: url },
+  ];
+};
 
 export default function DocsPage() {
   const { mdxPath, title, category, version } = useLoaderData<typeof loader>();
