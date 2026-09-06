@@ -62,22 +62,35 @@ export function blockUserInteraction() {
 }
 
 export interface SessionData {
-  ip: string | null;
-  device: string;
-  os: string | null;
-  browser: string | null;
+  client: string;
+  os: string;
+  browser: string;
+  ip_address: string;
+  country: string;
+  region: string;
+  city: string;
 }
 
 import { UAParser } from 'ua-parser-js';
 
-export const getSessionData = (request: Request, device: 'web' | 'desktop' | 'mobile'): SessionData => {
+export const getSessionData = (request: Request): SessionData => {
   const userAgent = request.headers.get('user-agent') ?? '';
   const result = UAParser(userAgent);
+
+  let client = 'Desktop';
+  if (result.device.type === 'mobile') {
+    client = 'Mobile';
+  } else if (result.device.type === 'tablet') {
+    client = 'Tablet';
+  }
   return {
-    ip: request.headers.get('cf-connecting-ip') ?? null,
-    device: device,
-    os: result.os.name ?? null,
-    browser: result.browser.name ?? null,
+    client: client || 'Unknown',
+    os: result.os.name || 'Unknown',
+    browser: result.browser.name || 'Unknown',
+    ip_address: request.headers.get('cf-connecting-ip') || 'Unknown',
+    country: request.headers.get('cf-ipcountry') || 'Unknown',
+    region: request.headers.get('cf-region') || 'Unknown',
+    city: request.headers.get('cf-ipcity') || 'Unknown',
   };
 };
 export const formatUrl = (value: string): string => {

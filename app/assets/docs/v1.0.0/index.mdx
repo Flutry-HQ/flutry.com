@@ -1,0 +1,47 @@
+# Flutry v1.0.0
+
+Flutry is a TypeScript-first backend framework for Node.js. Its core is a Fastify-based HTTP server with file-based route discovery, a small request context API, optional Socket.IO support, and focused packages for databases, Redis, logging, tokens, encryption, and identifiers.
+
+## What you will learn
+
+- how to create and start a Flutry application;
+- how route and model discovery maps files to runtime behavior;
+- how the `@flutry/server`, `@flutry/common`, `@flutry/database-sequlize`, and `@flutry/redis` packages fit together;
+- how to use the Flutry CLI to create projects and generate files.
+
+<details>
+<summary>Package map</summary>
+
+| Package                     | Responsibility                                         |
+| --------------------------- | ------------------------------------------------------ |
+| `@flutry/server`            | Fastify HTTP server, routes, context, and Socket.IO    |
+| `@flutry/common`            | logger, JWT, encryption, and Snowflake IDs             |
+| `@flutry/database-sequlize` | Sequelize connection, model loading, and query helpers |
+| `@flutry/redis`             | JSON serialization and Redis connection wrapper        |
+| `@flutry/cli`               | project creation and route/model generators            |
+
+</details>
+
+> **Version note**
+>
+> This documentation describes the APIs implemented in the repository for Flutry v1.0.0. The package names and the `database-sequlize` spelling follow the published source exactly.
+
+## Start here
+
+1. [Installation](/docs/latest/getting-started/installation)
+2. [Quick start](/docs/latest/getting-started/quick-start)
+3. [Project structure](/docs/latest/getting-started/project-structure)
+4. [Configuration](/docs/latest/getting-started/configuration)
+5. [Server package](/docs/latest/packages/server)
+
+## Detailed references
+
+- [Complete application recipe](/docs/latest/getting-started/application-recipe)
+- [Server API reference](/docs/latest/packages/api-reference)
+- [Socket.IO](/docs/latest/packages/sockets)
+- [Database CRUD and transactions](/docs/latest/packages/database-crud)
+- [Database models and associations](/docs/latest/packages/database-models)
+- [Logging](/docs/latest/packages/common-logging)
+- [Snowflake IDs](/docs/latest/packages/common-snowflake)
+- [Redis lifecycle](/docs/latest/packages/redis-lifecycle)
+- [CLI workflow](/docs/latest/cli/workflow)

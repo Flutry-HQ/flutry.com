@@ -1,0 +1,106 @@
+The database wrapper exposes both class methods on `Database` and functional exports. The functional form is usually the clearest in route services.
+
+```ts
+import { count, create, destroy, exists, findAll, findByPk, findOne, update } from '@flutry/database-sequlize';
+import User from '../models/user.model';
+```
+
+## Create
+
+```ts
+const user = await create(User, {
+  id: 'user-1',
+  email: 'ada@example.com',
+  displayName: 'Ada Lovelace',
+});
+```
+
+The returned model instance is converted to a plain object with `get({ plain: true })`.
+
+## Read
+
+```ts
+const byId = await findByPk(User, 'user-1');
+
+const byEmail = await findOne(User, {
+  where: { email: 'ada@example.com' },
+});
+
+const users = await findAll(User, {
+  where: { active: true },
+  attributes: ['id', 'email', 'displayName'],
+  order: [['displayName', 'ASC']],
+  limit: 25,
+  offset: 0,
+});
+
+const alreadyRegistered = await exists(User, {
+  where: { email: 'ada@example.com' },
+});
+
+const total = await count(User, { where: { active: true } });
+```
+
+`findOne` and `findByPk` return `null` when there is no match. `findAll` returns an array of plain objects, not Sequelize model instances.
+
+## Update and delete
+
+```ts
+const updated = await update(User, { displayName: 'Augusta Ada King' }, { where: { id: 'user-1' } });
+
+const deletedRows = await destroy(User, {
+  where: { id: 'user-1' },
+});
+```
+
+`update` requests `returning: true` and returns the updated rows when the dialect returns them. `destroy` returns the number of deleted rows.
+
+## Transactions
+
+Pass the transaction received by the callback into every Sequelize operation that belongs to the transaction:
+
+```ts
+import { create, transaction } from '@flutry/database-sequlize';
+import { Connect } from '@flutry/database-sequlize';
+import User from '../models/user.model';
+import Profile from '../models/profile.model';
+
+const result = await transaction(Connect.sequelize, async (tx) => {
+  const user = await create(
+    User,
+    {
+      id: 'user-2',
+      email: 'grace@example.com',
+    },
+    { transaction: tx },
+  );
+
+  await create(
+    Profile,
+    {
+      userId: 'user-2',
+      bio: 'Compiler pioneer',
+    },
+    { transaction: tx },
+  );
+
+  return user;
+});
+```
+
+Sequelize commits when the callback resolves and rolls back when it throws. Do not catch and suppress an error inside the callback unless the transaction should still commit.
+
+## Operators
+
+The package re-exports Sequelize's `Op` for typed query conditions:
+
+```ts
+import { Op, findAll } from '@flutry/database-sequlize';
+
+const recent = await findAll(User, {
+  where: {
+    createdAt: { [Op.gte]: new Date('2026-01-01') },
+    email: { [Op.like]: '%@example.com' },
+  },
+});
+```

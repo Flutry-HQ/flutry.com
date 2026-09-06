@@ -1,61 +1,38 @@
+import { destroySession, getSession } from './session.service';
+import { data, redirect, type UNSAFE_DataWithResponseInit } from 'react-router';
 import { sleep } from './function.service';
-import { getSession } from './session.service';
-import { getAuthData } from './auth.service';
-import { data, redirect, type Session } from 'react-router';
 
 export type ActionRunnerResult = {
-  session?: Session;
   action: string;
   submitId: string;
   formData: FormData;
-  token?: string;
 };
 
-export const actionRunner = async (request: Request, actions: string[], verify?: boolean): Promise<ActionRunnerResult> => {
-  await sleep(100);
+const getFormField = (formData: FormData, key: string): string | null => {
+  const value = formData.get(key);
+  if (typeof value !== 'string') return null;
 
-  const formData = await request.formData();
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
 
-  const action = formData.get('action') as string;
-  const submitId = formData.get('submitId') as string;
+export const actionRunner = async (request: Request, actions: string[]): Promise<ActionRunnerResult | UNSAFE_DataWithResponseInit<null>> => {
+  try {
+    await sleep(100);
+    const formData = await request.formData();
 
-  if (!action || !submitId || action.trim().length === 0 || submitId.trim().length === 0) {
-    throw data(null, {
-      status: 400,
-    });
-  }
+    const action = getFormField(formData, 'action');
+    const submitId = getFormField(formData, 'submitId');
 
-  // ! Reject unknown actions.
-  if (!actions.includes(action)) {
-    throw data(null, {
-      status: 400,
-    });
-  }
-  if (verify) {
-    const session = await getSession(request.headers.get('Cookie'));
-
-    const session_id = session.get('session_id');
-
-    // ! Authentication session is required.
-    if (!session_id) {
-      throw redirect('/');
+    if (!action || !submitId || !actions.includes(action)) {
+      return data(null, { status: 400 });
     }
-    // ? Resolve session tokens and user data.
-    const auth = await getAuthData(session_id);
-    if (!auth) {
-      throw redirect('/');
-    }
-    return {
-      session,
-      action,
-      submitId,
-      formData,
-      token: auth.session.access_token,
-    };
+
+    return { action, submitId, formData };
+  } catch (error) {
+    // A data()/redirect() dobott "response" objektumokat mindig továbbengedjük.
+    if (error instanceof Response) throw error;
+    console.error('actionRunner:', error);
+    return data(null, { status: 400 });
   }
-  return {
-    action,
-    submitId,
-    formData,
-  };
 };

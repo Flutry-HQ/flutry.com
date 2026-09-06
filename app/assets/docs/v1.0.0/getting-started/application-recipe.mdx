@@ -1,0 +1,134 @@
+This example combines Flutry's layers in a small API: routes, a database, caching, JWT, and the shared logger.
+
+## Bootstrap
+
+```ts
+import 'dotenv/config';
+import { Connect, type DatabaseDialect } from '@flutry/database-sequlize';
+import { HttpServer } from '@flutry/server';
+
+const server = new HttpServer({
+  trustProxy: true,
+  logger: false,
+  prefix: process.env.PREFIX_API ?? '/',
+  compression: true,
+  helmet: true,
+  socket: false,
+});
+
+if (process.env.DB === 'true') {
+  await new Connect({
+    host: process.env.DB_HOST ?? 'localhost',
+    port: Number(process.env.DB_PORT ?? 3306),
+    database: process.env.DB_NAME ?? 'flutry',
+    username: process.env.DB_USER ?? 'root',
+    password: process.env.DB_PASS ?? '',
+    dialect: (process.env.DB_DIALECT as DatabaseDialect) ?? 'mariadb',
+  });
+}
+
+await server.listen(Number(process.env.PORT ?? 1337), process.env.HOST ?? '0.0.0.0');
+```
+
+## Route and service layers
+
+The CLI route generator also creates a service file. Keep cache, token, and database logic in the service, while the route handles HTTP adaptation.
+
+```ts
+// src/routes/users/users.service.ts
+import { findByPk } from '@flutry/database-sequlize';
+import { redisService } from '@flutry/redis';
+import User from '../../models/user.model';
+
+export async function getUser(id: string) {
+  const cacheKey = `user:${id}`;
+  const cached = await redisService.get(cacheKey);
+
+  if (cached) {
+    return cached;
+  }
+
+  const user = await findByPk(User, id);
+
+  if (user) {
+    await redisService.set(cacheKey, user, 300);
+  }
+
+  return user;
+}
+```
+
+```ts
+// src/routes/users/users.route.ts
+import { Router } from '@flutry/server';
+import { getUser } from './users.service';
+
+export default class UsersRoute extends Router {
+  constructor() {
+    super();
+
+    this.get('/:id', async (ctx) => {
+      const params = ctx.params as { id?: string };
+
+      if (!params.id) {
+        return ctx.send({ message: 'Missing user id' }, 400);
+      }
+
+      const user = await getUser(params.id);
+
+      if (!user) {
+        return ctx.send({ message: 'User not found' }, 404);
+      }
+
+      return ctx.send(user);
+    });
+  }
+}
+```
+
+The `src/routes/users/users.route.ts` file receives the `/users` prefix, so the complete endpoint is `GET /users/:id`, or `GET /api/users/:id` when `PREFIX_API=/api`.
+
+## JWT authentication pattern
+
+`Ctx` does not include built-in authentication middleware, so perform token verification in an application helper:
+
+```ts
+import { jwt } from '@flutry/common';
+import { Router } from '@flutry/server';
+
+export default class MeRoute extends Router {
+  constructor() {
+    super();
+
+    this.get('/', (ctx) => {
+      const authorization = ctx.getHeader('authorization');
+      const token = authorization?.startsWith('Bearer ') ? authorization.slice('Bearer '.length) : null;
+
+      if (!token) {
+        return ctx.send({ message: 'Unauthorized' }, 401);
+      }
+
+      try {
+        const payload = jwt.verifyToken(token);
+        return ctx.send({ payload });
+      } catch {
+        return ctx.send({ message: 'Invalid token' }, 401);
+      }
+    });
+  }
+}
+```
+
+This deliberately uses only the framework's actual JWT API: the repository does not implement a separate authentication middleware or guard abstraction.
+
+## Shutdown
+
+Close long-lived resources during a controlled shutdown:
+
+```ts
+process.once('SIGTERM', async () => {
+  await server.close();
+});
+```
+
+When using Redis, also include `redisService.disconnect()` in the shutdown sequence.

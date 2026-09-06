@@ -1,0 +1,30 @@
+`SnowflakeService` generates sortable string IDs. The shared `snowflake` instance is ready to use; create another service only when an isolated generator state is required.
+
+```ts
+import { SnowflakeService, snowflake } from '@flutry/common';
+
+const id = snowflake.generate();
+console.log(id); // string
+
+const isolated = new SnowflakeService();
+const anotherId = isolated.generate();
+```
+
+## ID layout
+
+The implementation combines:
+
+1. milliseconds since the custom epoch `2023-01-01T00:00:00.000Z`;
+2. a 22-bit instance machine identifier;
+3. a 6-bit sequence for IDs generated during the same millisecond.
+
+The machine identifier uses a MAC address plus a cryptographically random value. The sequence counter allows 64 IDs per service instance in one millisecond; when exhausted, generation waits for the next millisecond.
+
+```ts
+const ids = Array.from({ length: 100 }, () => snowflake.generate());
+const uniqueIds = new Set(ids);
+
+console.log(uniqueIds.size === ids.length); // true
+```
+
+IDs are strings because a Snowflake value can exceed JavaScript's safe integer range. Store and transmit them as strings, including in JSON APIs and database primary keys.

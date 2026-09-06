@@ -1,0 +1,65 @@
+A minimal Flutry application creates an `HttpServer`, optionally creates a database connection, and calls `listen`.
+
+```ts
+import 'dotenv/config';
+import { HttpServer } from '@flutry/server';
+
+const server = new HttpServer({
+  trustProxy: true,
+  logger: false,
+  compression: true,
+  helmet: true,
+  prefix: process.env.PREFIX_API ?? '/',
+  socket: false,
+});
+
+await server.listen(Number(process.env.PORT ?? 1337), process.env.HOST ?? '0.0.0.0');
+```
+
+Create `src/routes/index.route.ts`:
+
+```ts
+import { Router } from '@flutry/server';
+
+export default class IndexRoute extends Router {
+  constructor() {
+    super();
+    this.get('/', (ctx) =>
+      ctx.send(
+        {
+          status: 200,
+          message: 'Hello from Flutry!',
+        },
+        200,
+      ),
+    );
+  }
+}
+```
+
+With `PREFIX_API=/`, this route responds at `GET /`. With `PREFIX_API=/api`, it responds at `GET /api`.
+
+## Add a database
+
+The starter conditionally creates a `Connect` instance when `DB=true`:
+
+```ts
+import { Connect, type DatabaseDialect } from '@flutry/database-sequlize';
+
+if (process.env.DB === 'true') {
+  await new Connect({
+    host: process.env.DB_HOST ?? 'localhost',
+    port: Number(process.env.DB_PORT ?? 3306),
+    database: process.env.DB_NAME ?? 'flutry',
+    username: process.env.DB_USER ?? 'root',
+    password: process.env.DB_PASS ?? '',
+    dialect: (process.env.DB_DIALECT as DatabaseDialect) ?? 'mariadb',
+  });
+}
+```
+
+`Connect` starts asynchronously in its constructor, retries failed connections up to five times, and initializes files ending in `.model.ts` or the equivalent JavaScript extensions.
+
+## Verify the application
+
+The server registers a health endpoint at `/health` before applying the configured prefix behavior to application routes. The exact response is produced by the server package's system handler; use it as a basic process check.

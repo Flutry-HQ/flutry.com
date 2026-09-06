@@ -1,0 +1,39 @@
+The common package creates one shared Winston-backed logger and exports a stable Flutry interface around it.
+
+```ts
+import { httpLogStream, logger, rawWinstonLogger } from '@flutry/common';
+
+logger.info('Server started', { port: 1337 });
+logger.http('GET /health', { statusCode: 200, durationMs: 4 });
+logger.debug('Parsed request', { requestId: 'req-1' });
+logger.warn('Cache miss', { key: 'user:1' });
+```
+
+## Error overloads
+
+All of these forms are supported:
+
+```ts
+logger.error('Could not load user', { userId: 'user-1' });
+logger.error(error);
+logger.error(error, { requestId: 'req-1' });
+logger.error('Could not load user', error, { userId: 'user-1' });
+```
+
+Error names, messages, stacks, and custom enumerable properties are extracted into log metadata. Unknown thrown values are normalized instead of being silently discarded.
+
+## Levels and files
+
+The levels are `error`, `warn`, `info`, `http`, and `debug`. `LOG_LEVEL` controls the active threshold. Without it, production defaults to `info` and non-production environments default to `debug`.
+
+The logger writes colorized output to the console and plain output to daily rotating files in `logs/`. File archives rotate at 20 MB and are retained for 30 days. The directory is relative to the current working directory.
+
+## Integrations
+
+`httpLogStream` exposes a writable `{ write(message: string): void }` object. It trims the message and forwards it to the `http` level:
+
+```ts
+someHttpLogger.configure({ stream: httpLogStream });
+```
+
+`rawWinstonLogger` is available when an integration requires Winston-specific transports or formats. Prefer `logger` for application code so the rest of the framework stays decoupled from Winston.

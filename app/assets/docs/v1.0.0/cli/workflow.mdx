@@ -1,0 +1,82 @@
+The `new` command does not create an empty directory: it downloads the Flutry starter repository and then modifies it according to the answers. The target directory must not already exist.
+
+```bash
+npx @flutry/cli new
+```
+
+## Prompts and defaults
+
+| Prompt                   | Valid value / default                                                         |
+| ------------------------ | ----------------------------------------------------------------------------- |
+| Project folder           | must not be empty, `.` or `..`, and must not contain `/` or `\\`              |
+| Package name             | lowercase letters, numbers, and hyphens; defaults to a normalized folder name |
+| Enable database          | defaults to `true`                                                            |
+| Database name            | `flutrydb`                                                                    |
+| Database user            | `root`                                                                        |
+| Database host            | `localhost`                                                                   |
+| Database port            | `3306`, a port between 1 and 65535                                            |
+| Database type            | `mariadb`                                                                     |
+| Enable Socket.IO         | defaults to `true`                                                            |
+| Package manager          | `npm`                                                                         |
+| Install dependencies now | defaults to `true`                                                            |
+
+The password prompt masks the database password while it is entered.
+
+## Generated files
+
+The CLI starts from the starter and then creates or updates:
+
+```text
+my-api/
+  .env
+  .env.example
+  package.json
+  README.md
+  src/
+    main.ts
+    routes/
+    models/
+    utils/
+      socket/index.ts       # only when Socket.IO is enabled
+```
+
+The `package.json` name is changed to the package-name prompt value. `.gitattributes` and `assets` are removed from the new project, and the README is replaced with a simple generated starter README.
+
+## Socket.IO selection
+
+When Socket.IO is enabled, the CLI applies this configuration to `main.ts`:
+
+```ts
+socket: {
+  cors: {
+    origin: '*',
+  },
+},
+```
+
+It also creates `src/utils/socket/index.ts`, which uses `getSocket()` to register connection and disconnect logs. When disabled, `socket: false` is written to the bootstrap, and the utility file is not created.
+
+> **CORS warning**
+>
+> The generated `origin: '*'` value is a starter setting. In production, restrict the Socket.IO origin to the actual frontend domains.
+
+## Environment files
+
+The real `.env` receives the supplied database values and random 64-byte hexadecimal secrets. `.env.example` contains empty database fields and `your_*` placeholder secrets.
+
+```bash
+cd my-api
+npm install
+npm run dev
+```
+
+If you declined the install prompt, the CLI prints the next step using the selected package manager. If project creation fails, the CLI attempts to remove the partially created target directory.
+
+## Conflict-free generation
+
+```bash
+flutry generate route admin-users
+flutry generate model audit_event
+```
+
+The route name remains lowercase in the file path, while the class name becomes PascalCase (`AdminUsersRoute`, `AuditEvent`). The generator never overwrites an existing file; it fails with an error instead.

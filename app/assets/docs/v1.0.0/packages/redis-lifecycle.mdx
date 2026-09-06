@@ -1,0 +1,69 @@
+When the `redisService` instance is imported, it automatically creates the ioredis client and attempts to connect. The package logs the `connect`, `error`, `close`, and `reconnecting` events.
+
+```ts
+import { redisService } from '@flutry/redis';
+
+async function cacheUser(userId: string, user: unknown) {
+  await redisService.set(`user:${userId}`, user, 300);
+}
+
+async function readCachedUser(userId: string) {
+  return redisService.get(`user:${userId}`);
+}
+```
+
+## JSON serialization
+
+`set` uses `JSON.stringify`, while `get` uses `JSON.parse`. Objects, arrays, strings, numbers, booleans, and `null` are supported; functions, `BigInt` values, and circular references are not suitable cache values.
+
+```ts
+await redisService.set('flags', {
+  beta: true,
+  rollout: 25,
+});
+
+const flags = await redisService.get('flags');
+// { beta: true, rollout: 25 }
+```
+
+## TTL
+
+The third argument specifies the expiration time in seconds. The implementation sends the Redis `EX` option only for a truthy value, so `0` does not configure an expiration.
+
+```ts
+await redisService.set('one-time-token', { value: 'abc' }, 60);
+```
+
+## Prefixes
+
+`REDIS_PREFIX` is prepended to every key, while application calls continue to use keys without the prefix:
+
+```dotenv
+REDIS_PREFIX=my-app:
+```
+
+```ts
+await redisService.set('session:1', { userId: 'user-1' });
+// In Redis: my-app:session:1
+```
+
+## Closing the connection
+
+Close the connection during tests, worker shutdown, or a controlled application shutdown:
+
+```ts
+process.once('SIGTERM', async () => {
+  await redisService.disconnect();
+  process.exit(0);
+});
+```
+
+The `get`, `set`, and `delete` operations throw `Redis is not connected` when the client is not ready. The operations log their errors and re-throw them, so handle business-level fallbacks in the route or service layer.
+
+```ts
+const value = await redisService.get('profile').catch(() => null);
+```
+
+> **Singleton and custom instances**
+>
+> The package also exports the `RedisService` class, but its constructor immediately starts connecting. Most applications should use the `redisService` singleton created during import.

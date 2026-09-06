@@ -1,0 +1,46 @@
+Routes are classes, not standalone handler functions. Extend `Router`, call `super()`, and register handlers in the constructor.
+
+```ts
+import { Router } from '@flutry/server';
+
+export default class UsersRoute extends Router {
+  constructor() {
+    super();
+
+    this.get('/', async (ctx) => {
+      return ctx.send({ items: [] });
+    });
+
+    this.post('/', async (ctx) => {
+      return ctx.status(201).send({ created: true });
+    });
+  }
+}
+```
+
+## HTTP methods
+
+`Router` provides `get`, `post`, `put`, `delete`, `patch`, `head`, and `options`. Each receives a route path and a `CtxHandler`. A handler can return any value or a promise.
+
+`RouteDefinition` contains the registered `method`, `path`, and `handler`. `HttpMethod` is the lowercase union of the supported method names.
+
+## File mapping
+
+The loader recursively imports files whose name ends in `.route.ts` (or the equivalent built route file). The default export must extend `Router`. `$` parameters are converted to Fastify parameters, so `$id.route.ts` declares `:id` at runtime.
+
+```text
+src/routes/
+  index.route.ts           -> /
+  users/user.route.ts      -> /users
+  users/$id.route.ts       -> /users/:id
+```
+
+A global prefix is normalized before joining. For example, `prefix: '/api'` plus `/users` becomes `/api/users`.
+
+## System handlers
+
+After application routes are loaded, Flutry registers a favicon handler, a health endpoint, a 404 handler, and an error handler. Do not create application routes that depend on private loader internals; use `Router` and `Ctx` as the stable application API.
+
+> **Failure behavior**
+>
+> A route without a default export, or a default export that does not extend `Router`, causes route loading to fail with an explicit error.

@@ -1,0 +1,31 @@
+This page consolidates environment variables read by the documented Flutry source.
+
+| Variable              | Package          | Default / accepted values                                            |
+| --------------------- | ---------------- | -------------------------------------------------------------------- |
+| `PORT`                | starter          | `1337`                                                               |
+| `HOST`                | starter          | `0.0.0.0` in the generated CLI env; starter example uses `127.0.0.1` |
+| `PREFIX_API`          | starter/server   | `/`                                                                  |
+| `DB`                  | starter          | only `true` enables the database                                     |
+| `DB_HOST`             | starter          | `localhost` fallback                                                 |
+| `DB_PORT`             | starter          | `3306` fallback                                                      |
+| `DB_NAME`             | starter          | `flutry` fallback                                                    |
+| `DB_USER`             | starter          | `root` fallback                                                      |
+| `DB_PASS`             | starter          | empty fallback                                                       |
+| `DB_DIALECT`          | starter/database | `mariadb` or `mysql`                                                 |
+| `SECRET_KEY`          | common           | required for encryption                                              |
+| `SECRET_SALT`         | common           | required for encryption                                              |
+| `JWT_SECRET_KEY`      | common           | required for JWT                                                     |
+| `JWT_EXPIRATION_TIME` | common           | `1h`                                                                 |
+| `LOG_LEVEL`           | common           | `debug` outside production, `info` in production                     |
+| `REDIS_HOST`          | redis            | `localhost`                                                          |
+| `REDIS_PORT`          | redis            | `6379`                                                               |
+| `REDIS_PASSWORD`      | redis            | optional                                                             |
+| `REDIS_PREFIX`        | redis            | empty prefix                                                         |
+
+## Deployment checklist
+
+- use strong, unique values for all secrets;
+- set `NODE_ENV=production` so model synchronization uses normal `sync()` rather than `alter: true`;
+- provide the correct MySQL/MariaDB driver through the package dependencies;
+- ensure Redis is reachable before using `redisService` operations;
+- bind `HOST` and configure `trustProxy` according to the deployment topology.

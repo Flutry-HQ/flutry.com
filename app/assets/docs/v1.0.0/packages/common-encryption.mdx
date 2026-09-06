@@ -1,0 +1,28 @@
+`encryption` combines Argon2id password hashing with AES-256-GCM encryption. Password hashes returned by `hashPassword` are encrypted before storage, so both `SECRET_KEY` and `SECRET_SALT` are required.
+
+```ts
+import { encryption } from '@flutry/common';
+
+const storedPassword = await encryption.hashPassword('correct horse battery staple');
+const valid = await encryption.comparePassword('correct horse battery staple', storedPassword);
+```
+
+For arbitrary text, use symmetric encryption directly:
+
+```ts
+const encrypted = encryption.encrypt('private value');
+const plainText = encryption.decrypt(encrypted);
+
+const withCustomSecret = encryption.encrypt('private value', 'service-specific-secret');
+const restored = encryption.decrypt(withCustomSecret, 'service-specific-secret');
+```
+
+## Behavior
+
+- Password hashing uses Argon2id with the implementation's fixed cost settings.
+- Text encryption uses AES-256-GCM and a new random 12-byte IV per call.
+- The encoded payload contains IV, authentication tag, and ciphertext as Base64.
+- `comparePassword` returns `false` for mismatches and verification/decryption failures.
+- `encrypt` and `decrypt` throw when configuration is missing or authentication fails.
+
+A custom secret replaces `SECRET_KEY`, but `SECRET_SALT` remains required because the key is derived with scrypt.

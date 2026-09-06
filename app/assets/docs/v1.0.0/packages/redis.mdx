@@ -1,0 +1,44 @@
+The Redis package wraps ioredis with automatic JSON serialization, connection status checks, reconnect behavior, and key prefixes.
+
+```bash
+npm install @flutry/redis
+```
+
+```ts
+import { redisService } from '@flutry/redis';
+
+await redisService.set('user:1', { id: '1', name: 'Ada' }, 60);
+const user = await redisService.get('user:1');
+await redisService.delete('user:1');
+```
+
+## Environment
+
+- `REDIS_HOST`, default `localhost`
+- `REDIS_PORT`, default `6379`
+- `REDIS_PASSWORD`, optional
+- `REDIS_PREFIX`, prepended to every key
+
+The exported `redisService` is instantiated when the package is imported and connects automatically. `RedisService` is also exported for a separately managed instance.
+
+## API
+
+| Method                         | Result                                       |
+| ------------------------------ | -------------------------------------------- |
+| `get(key)`                     | Parsed JSON value or `null`                  |
+| `set(key, value, ttlSeconds?)` | Redis `'OK'`; optional expiration in seconds |
+| `delete(key)`                  | Number of removed keys                       |
+| `disconnect()`                 | Closes the active connection                 |
+
+Values must be JSON serializable because `set` calls `JSON.stringify` and `get` calls `JSON.parse`. Operations throw when the client is not connected; connection errors are logged and re-thrown.
+
+```ts
+await redisService.set(
+  'session:abc',
+  {
+    userId: 'user-1',
+    scopes: ['read'],
+  },
+  3600,
+);
+```

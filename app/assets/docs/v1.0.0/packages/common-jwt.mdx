@@ -1,0 +1,24 @@
+`jwt` is a shared `JWTService` instance. Tokens use HS256 and require `JWT_SECRET_KEY`.
+
+```ts
+import { jwt } from '@flutry/common';
+
+const token = jwt.generateToken({ userId: 'user-1', role: 'admin' }, '15m');
+const payload = jwt.verifyToken(token);
+const expiresAt = jwt.getTokenExpiration(token);
+```
+
+## Methods
+
+| Method                          | Behavior                                                                                                                        |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `generateToken(payload, time?)` | Signs a token and adds a unique `rand` UUID. Uses `JWT_EXPIRATION_TIME` or `1h` when `time` is omitted.                         |
+| `verifyToken(token)`            | Verifies the HS256 signature and expiration. Throws for expired, inactive, or invalid tokens.                                   |
+| `decodeToken(token)`            | Decodes without signature verification. It still requires the configured secret because the service checks configuration first. |
+| `getTokenExpiration(token)`     | Reads the `exp` claim and returns a `Date`; it does not establish authenticity.                                                 |
+
+`JWTPayload` is `Record<string, unknown>`. Accepted duration strings are parsed by `parse-duration`, for example `15m`, `1h`, and `7d`.
+
+> **Security**
+>
+> Use `verifyToken` before trusting claims. `decodeToken` and `getTokenExpiration` are inspection helpers, not authentication checks.

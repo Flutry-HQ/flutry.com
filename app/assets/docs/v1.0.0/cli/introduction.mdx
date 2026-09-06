@@ -1,0 +1,44 @@
+The CLI creates a starter project and generates route/model files.
+
+```bash
+npx @flutry/cli new
+```
+
+The command uses an interactive prompt for:
+
+- project folder and package name;
+- database enablement and MariaDB/MySQL connection values;
+- Socket.IO enablement;
+- npm, Yarn, or pnpm;
+- immediate dependency installation.
+
+The generated `.env` contains server, database, and secret values. For a real project, replace generated or example secrets before deployment.
+
+## Generate a route
+
+```bash
+flutry generate route users
+# alias
+flutry g route users
+```
+
+This creates:
+
+```text
+src/routes/users/users.route.ts
+src/routes/users/users.service.ts
+```
+
+The route extends `Router` and contains a `GET /users` handler returning `{ message: 'Ok' }`. The service file is an empty class intended for application code.
+
+## Generate a model
+
+```bash
+flutry generate model user
+```
+
+This creates `src/models/user.model.ts` with a Sequelize model, `id` and `message` fields, a unique message index, and `timestamps: false`. It is a starting point, not a complete domain model.
+
+## Naming rules
+
+Names are trimmed, lowercased, and must start with a letter. They may contain lowercase letters, numbers, underscores, and hyphens. Hyphens and underscores are converted to PascalCase for generated class names. Existing files are never overwritten; generation fails with a clear error.

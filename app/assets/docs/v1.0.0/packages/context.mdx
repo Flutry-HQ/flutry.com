@@ -1,0 +1,35 @@
+`Ctx` is the small adapter between a route handler and Fastify's request/reply objects. It exposes request data and common response operations without requiring handlers to depend on Fastify directly.
+
+```ts
+this.get('/:id', async (ctx) => {
+  const id = ctx.params.id;
+  const verbose = ctx.query.verbose;
+  const authorization = ctx.getHeader('authorization');
+
+  return ctx.send({ id, verbose, authorization });
+});
+```
+
+## Request accessors
+
+- `params` returns route parameters.
+- `body` returns the parsed request body.
+- `query` returns query-string values.
+- `header(name)` reads a request header using a case-insensitive lookup.
+
+## Response methods
+
+```ts
+this.post('/', async (ctx) => {
+  ctx.setHeader('x-flutry', 'created');
+  return ctx.status(201).send({ ok: true });
+});
+
+this.get('/login', (ctx) => ctx.redirect('/dashboard', 302));
+
+this.get('/empty', (ctx) => ctx.end());
+```
+
+`send(data, code?)` sends a response and optionally sets the status code. `status(code)` sets the status and returns the reply wrapper for chaining. `redirect(url, code?)` redirects, `getHeader(name)` reads a request header, `setHeader(name, value)` sets a response header, and `end()` sends an empty response.
+
+`CtxHandler` is defined as `(ctx: Ctx) => unknown | Promise<unknown>`, so synchronous and asynchronous handlers are both valid.

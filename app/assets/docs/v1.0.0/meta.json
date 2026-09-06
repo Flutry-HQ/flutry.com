@@ -1,0 +1,55 @@
+{
+  "title": "Flutry v1.0.0",
+  "index": "Welcome",
+  "categories": [
+    {
+      "title": "Getting Started",
+      "folder": "getting-started",
+      "slug": "getting-started",
+      "items": [
+        { "title": "Installation", "slug": "installation" },
+        { "title": "Quick start", "slug": "quick-start" },
+        { "title": "Project structure", "slug": "project-structure" },
+        { "title": "Configuration", "slug": "configuration" },
+        { "title": "Complete application recipe", "slug": "application-recipe" }
+      ]
+    },
+    {
+      "title": "Packages",
+      "folder": "packages",
+      "slug": "packages",
+      "items": [
+        { "title": "Server", "slug": "server" },
+        { "title": "Server API reference", "slug": "api-reference" },
+        { "title": "Routing", "slug": "routing" },
+        { "title": "Request context", "slug": "context" },
+        { "title": "Socket.IO", "slug": "sockets" },
+        { "title": "Common services", "slug": "common" },
+        { "title": "Logging", "slug": "common-logging" },
+        { "title": "Snowflake IDs", "slug": "common-snowflake" },
+        { "title": "JWT", "slug": "common-jwt" },
+        { "title": "Encryption", "slug": "common-encryption" },
+        { "title": "Database", "slug": "database" },
+        { "title": "Database models", "slug": "database-models" },
+        { "title": "Database CRUD", "slug": "database-crud" },
+        { "title": "Redis", "slug": "redis" },
+        { "title": "Redis lifecycle", "slug": "redis-lifecycle" }
+      ]
+    },
+    {
+      "title": "CLI",
+      "folder": "cli",
+      "slug": "cli",
+      "items": [
+        { "title": "CLI introduction", "slug": "introduction" },
+        { "title": "CLI workflow", "slug": "workflow" }
+      ]
+    },
+    {
+      "title": "Reference",
+      "folder": "reference",
+      "slug": "reference",
+      "items": [{ "title": "Environment variables", "slug": "environment" }]
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+The `@flutry/database-sequlize` model loader does not require models to be registered one by one in the application's `main.ts`. It discovers and initializes files that follow the required convention.
+
+## Minimal model
+
+```ts
+import { DataTypes, Model, type Sequelize } from '@flutry/database-sequlize';
+
+export type UserAttributes = {
+  id: string;
+  email: string;
+  active: boolean;
+};
+
+export default class User extends Model<UserAttributes> {
+  static initialize(sequelize: Sequelize) {
+    User.init(
+      {
+        id: {
+          type: DataTypes.STRING,
+          primaryKey: true,
+        },
+        email: {
+          type: DataTypes.STRING,
+          allowNull: false,
+          unique: true,
+        },
+        active: {
+          type: DataTypes.BOOLEAN,
+          allowNull: false,
+          defaultValue: true,
+        },
+      },
+      {
+        sequelize,
+        tableName: 'users',
+        timestamps: true,
+      },
+    );
+  }
+}
+```
+
+For example, place this file at `src/models/user.model.ts`. In development, the loader searches `src/models`; in a production build, it searches `dist/models`.
+
+## Loading multiple models
+
+The loader initializes every model first and then calls optional `associate(models)` methods. This ordering matters because the other model must already be available when an association is created.
+
+```ts
+import { DataTypes, Model, type Sequelize } from '@flutry/database-sequlize';
+
+export default class Post extends Model {
+  static initialize(sequelize: Sequelize) {
+    Post.init(
+      {
+        id: { type: DataTypes.STRING, primaryKey: true },
+        userId: { type: DataTypes.STRING, allowNull: false },
+        title: { type: DataTypes.STRING, allowNull: false },
+      },
+      { sequelize, tableName: 'posts' },
+    );
+  }
+
+  static associate(models: Record<string, typeof Model>) {
+    Post.belongsTo(models.User, { foreignKey: 'userId', as: 'author' });
+  }
+}
+```
+
+The `associate` parameter is the name-indexed object collected by the model loader. Define the other side of the association with Sequelize's own API.
+
+## Development and production
+
+After loading the models, `Connect` synchronizes the schema:
+
+- `NODE_ENV !== 'production'`: `sequelize.sync({ alter: true })`;
+- `NODE_ENV === 'production'`: `sequelize.sync()`.
+
+`alter: true` is convenient during development because it adjusts the schema to the current models. The source does not provide a migration system for production; plan around normal `sync()` behavior and manage production database changes accordingly.
+
+## Model errors
+
+A `.model.*` file without a default export or a static `initialize` method is skipped with a logged message. File import errors are also logged. Establishing the connection and synchronizing the complete schema are separate lifecycle steps, so monitor logger output during startup.

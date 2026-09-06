@@ -1,0 +1,267 @@
+Flutry provides an optional Socket.IO integration through `@flutry/server`. Socket.IO uses the same underlying HTTP server as Fastify, so an application can expose HTTP routes and realtime events from one `HttpServer` instance.
+
+```bash
+npm install @flutry/server
+```
+
+## Enable Socket.IO
+
+Socket.IO is controlled by the required `socket` field in `HttpOptions`. Use `false` to disable it, or pass a partial Socket.IO `ServerOptions` object.
+
+```ts
+import { HttpServer } from '@flutry/server';
+
+const server = new HttpServer({
+  trustProxy: true,
+  logger: false,
+  prefix: '/',
+  compression: true,
+  helmet: true,
+  socket: {
+    cors: {
+      origin: ['https://app.example.com'],
+    },
+  },
+});
+
+await server.listen(1337, '0.0.0.0');
+```
+
+The Socket.IO instance is created during `HttpServer` construction. Route files and socket utility files are loaded when `listen()` is called, before the server accepts requests.
+
+## Disable Socket.IO
+
+The starter can disable realtime support explicitly:
+
+```ts
+const server = new HttpServer({
+  trustProxy: true,
+  logger: false,
+  prefix: '/',
+  compression: true,
+  helmet: true,
+  socket: false,
+});
+```
+
+When disabled, `server.socket` is `null`. Calling `getSocket()` without an initialized Socket.IO instance throws an error, so do not import socket utility code unconditionally in a configuration where sockets are disabled.
+
+## The `Socket` wrapper
+
+The package exposes the wrapper through `server.socket` and the following public properties and methods:
+
+| API                   | Description                                                                      |
+| --------------------- | -------------------------------------------------------------------------------- |
+| `instance`            | The underlying Socket.IO `Server` instance                                       |
+| `connected`           | Current Engine.IO client count                                                   |
+| `emit(event, data?)`  | Broadcasts an event to all connected clients                                     |
+| `on(event, listener)` | Registers a Socket.IO server event listener and returns the wrapper for chaining |
+| `isRunning`           | Whether the underlying HTTP server is listening                                  |
+| `close()`             | Closes Socket.IO and resolves after shutdown                                     |
+
+```ts
+const socket = server.socket;
+
+if (socket) {
+  console.log(socket.connected);
+  console.log(socket.isRunning);
+
+  socket.emit('system:ready', {
+    message: 'The realtime server is ready',
+  });
+
+  socket.on('connection', (client) => {
+    console.log(`Client connected: ${client.id}`);
+  });
+}
+```
+
+`Socket.emit()` calls the underlying server's broadcast `emit`, so every currently connected client receives the event. For room-scoped messages, use `sendRoom()` or `socket.instance`.
+
+## Connection and client events
+
+The wrapper's `on()` method forwards directly to the underlying Socket.IO server. The most common server event is `connection`:
+
+```ts
+import { logger } from '@flutry/common';
+import { HttpServer } from '@flutry/server';
+
+const server = new HttpServer({
+  trustProxy: false,
+  logger: false,
+  prefix: '/',
+  compression: false,
+  helmet: true,
+  socket: {},
+});
+
+server.socket?.on('connection', (client) => {
+  logger.info('Socket client connected', {
+    socketId: client.id,
+  });
+
+  client.on('disconnect', (reason: string) => {
+    logger.info('Socket client disconnected', {
+      socketId: client.id,
+      reason,
+    });
+  });
+
+  client.on('client:ping', (payload: { sentAt: number }) => {
+    client.emit('server:pong', {
+      sentAt: payload.sentAt,
+      receivedAt: Date.now(),
+    });
+  });
+});
+
+await server.listen(1337);
+```
+
+The `connection` listener is registered before `listen()` in this example. It is also safe to register it in a socket utility file because Flutry imports those files after Socket.IO initialization and before the HTTP server starts accepting requests.
+
+## Rooms
+
+Room operations are available from the underlying Socket.IO server through `socket.instance`. A connected client can join a room, and the server can send an event only to clients in that room.
+
+```ts
+import { sendRoom } from '@flutry/server';
+
+server.socket?.on('connection', (client) => {
+  client.on('room:join', (room: string) => {
+    void client.join(room);
+    client.emit('room:joined', { room });
+  });
+
+  client.on('room:leave', (room: string) => {
+    void client.leave(room);
+    client.emit('room:left', { room });
+  });
+});
+
+sendRoom('project:42', 'project:updated', {
+  projectId: '42',
+  changedAt: Date.now(),
+});
+```
+
+`sendRoom(room, event, payload)` calls `getSocket().instance.to(room).emit(event, payload)`. It requires Socket.IO to have been initialized and throws otherwise.
+
+For one-off room sends where the wrapper is already available, the equivalent underlying API is:
+
+```ts
+server.socket?.instance.to('project:42').emit('project:updated', {
+  projectId: '42',
+});
+```
+
+## Global access with `getSocket`
+
+`getSocket()` returns the globally registered wrapper created by `HttpServer`. This is useful in modules that should register listeners without receiving the server object as an argument.
+
+```ts
+import { getSocket } from '@flutry/server';
+
+const socket = getSocket();
+
+socket.on('connection', (client) => {
+  client.emit('welcome', {
+    connectedAt: Date.now(),
+  });
+});
+```
+
+The call must happen after `new HttpServer({ socket: ... })` has initialized Socket.IO. In a normal Flutry app, `src/utils/socket` is the intended place for this code.
+
+## Socket utility directory
+
+Flutry checks for `src/utils/socket`. The directory is optional. If it exists, every `.ts` and `.js` file in it and its subdirectories is imported recursively.
+
+```text
+src/
+  main.ts
+  utils/
+    socket/
+      index.ts
+      presence.ts
+      rooms/
+        project.ts
+```
+
+A utility module is executed for its side effects, so it can register event listeners immediately:
+
+```ts
+// src/utils/socket/index.ts
+import { logger } from '@flutry/common';
+import { getSocket } from '@flutry/server';
+
+const io = getSocket();
+
+io.on('connection', (client) => {
+  logger.info('Connected', { socketId: client.id });
+});
+```
+
+The loader only imports files ending in `.ts` or `.js`. Other files in the directory are ignored. Nested directories are supported.
+
+## CLI-generated setup
+
+When `flutry new` is run with Socket.IO enabled, the CLI changes `src/main.ts` to include:
+
+```ts
+socket: {
+  cors: {
+    origin: '*',
+  },
+},
+```
+
+It also creates `src/utils/socket/index.ts` with a connection and disconnect logger. The generated wildcard CORS value is a starter setting; restrict it to known frontend origins before deploying.
+
+## Client example
+
+The server-side Flutry package does not provide a browser client. A separate frontend can use the standard Socket.IO client package:
+
+```bash
+npm install socket.io-client
+```
+
+```ts
+import { io } from 'socket.io-client';
+
+const socket = io('http://localhost:1337');
+
+socket.on('connect', () => {
+  console.log('connected', socket.id);
+  socket.emit('client:ping', { sentAt: Date.now() });
+});
+
+socket.on('server:pong', (payload) => {
+  console.log('round trip started at', payload.sentAt);
+});
+```
+
+The event names and payload shapes are application contracts. Flutry forwards the events; it does not validate custom payload schemas.
+
+## Shutdown
+
+Use `server.close()` for application shutdown. The server lifecycle closes the Socket.IO wrapper when it exists, so the HTTP and realtime resources are shut down together.
+
+```ts
+process.once('SIGTERM', async () => {
+  await server.close();
+});
+```
+
+You can call `server.socket?.close()` directly for Socket.IO-only shutdown, but most applications should close the complete `HttpServer`.
+
+## Public exports
+
+```ts
+import { getSocket, sendRoom, type HttpOptions } from '@flutry/server';
+
+// Socket and the registration helpers are runtime internals used by HttpServer;
+// application code normally uses server.socket, getSocket, and sendRoom.
+```
+
+The package's public index exports `getSocket` and `sendRoom`; the `Socket` class itself is available through the server instance and is part of the generated type declarations.

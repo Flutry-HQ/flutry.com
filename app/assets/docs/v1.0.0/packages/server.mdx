@@ -1,0 +1,46 @@
+`@flutry/server` is the HTTP foundation of Flutry. It wraps Fastify, registers compression and security plugins, discovers route classes, and can attach Socket.IO to the same HTTP server.
+
+```bash
+npm install @flutry/server
+```
+
+## Public exports
+
+```ts
+import { Ctx, HttpServer, RouteLoader, Router, getSocket, sendRoom } from '@flutry/server';
+import type { CtxHandler, HttpMethod, HttpOptions, RouteDefinition, RouteLoaderOptions, RoutePlugin } from '@flutry/server';
+```
+
+`HttpServer` exposes the underlying Fastify instance as `app` and the initialized Socket.IO wrapper as `socket` when sockets are enabled.
+
+## Server options
+
+`HttpOptions` extends Fastify's `FastifyServerOptions` and adds the Flutry options used by the implementation:
+
+| Option        | Purpose                                                 |
+| ------------- | ------------------------------------------------------- |
+| `prefix`      | Global prefix applied to discovered routes              |
+| `socket`      | `false` to disable sockets, or Socket.IO server options |
+| `compression` | Enables the Fastify compression plugin when truthy      |
+| `helmet`      | Enables the Fastify helmet plugin when truthy           |
+| `logger`      | Passed to Fastify logger configuration                  |
+| `trustProxy`  | Controls Fastify proxy trust behavior                   |
+
+The Flutry-specific fields are required by the exported `HttpOptions` type, even when their values are `false`.
+
+```ts
+const server = new HttpServer({
+  prefix: '/api',
+  compression: true,
+  helmet: true,
+  trustProxy: true,
+  socket: false,
+});
+
+await server.listen(1337, '0.0.0.0');
+await server.close();
+```
+
+## Lifecycle
+
+Construction configures Fastify, the route loader, plugins, Socket.IO, and lifecycle handlers. `listen` loads routes and Socket.IO utility files, then starts Fastify. `close` gracefully closes the HTTP server and the socket wrapper.

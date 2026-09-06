@@ -1,0 +1,60 @@
+This package integrates Sequelize with Flutry's project conventions.
+
+```bash
+npm install @flutry/database-sequlize
+```
+
+```ts
+import { Connect, DataTypes, Model, Op, Sequelize, create, findAll, findByPk, findOne, update } from '@flutry/database-sequlize';
+```
+
+## Connection
+
+`DatabaseDialect` is `'mysql' | 'mariadb'`. `Connect` accepts `database`, `username`, `password`, `host`, `port`, and `dialect`.
+
+```ts
+const connection = new Connect({
+  database: 'flutry',
+  username: 'root',
+  password: '',
+  host: 'localhost',
+  port: 3306,
+  dialect: 'mariadb',
+});
+
+await connection.reconnect();
+console.log(Connect.isConnected);
+```
+
+The constructor starts connection immediately. The implementation authenticates, loads models, retries up to five times, and exits the process after the final failed attempt. It configures a connection pool, UTF-8MB4, a local timezone, and Sequelize network retries.
+
+## Models
+
+The package re-exports Sequelize's `Model`, `DataTypes`, `Sequelize`, and `Op`. A model is discovered when it has a `.model` filename suffix, a default export, and a static `initialize` method. Optional static `associate(models)` methods run after all models are loaded.
+
+```ts
+export default class Test extends Model {
+  static initialize(sequelize: Sequelize) {
+    Test.init(
+      {
+        id: { type: DataTypes.STRING, primaryKey: true },
+        message: { type: DataTypes.STRING, allowNull: false },
+      },
+      { sequelize, tableName: 'test', timestamps: false },
+    );
+  }
+}
+```
+
+## Query helpers
+
+The package exports `findAll`, `findOne`, `findByPk`, `exists`, `create`, `update`, `destroy`, `count`, and `transaction`. They delegate to Sequelize and convert returned model instances to plain objects where applicable. Their options are Sequelize `FindOptions`, `CreateOptions`, `UpdateOptions`, `DestroyOptions`, and `Transaction` values.
+
+```ts
+const user = await findOne(User, { where: { email } });
+const users = await findAll(User, { limit: 20, order: [['createdAt', 'DESC']] });
+const byId = await findByPk(User, userId);
+const present = await exists(User, { where: { email } });
+```
+
+`findOne`, `findByPk` return `object | null`; `findAll` returns plain object arrays; `destroy` returns the number of deleted rows; `count` returns a number.
