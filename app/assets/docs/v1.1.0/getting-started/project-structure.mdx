@@ -1,0 +1,63 @@
+The starter project keeps application code under `src` and separates the server entry point, routes, and models.
+
+```text
+src/
+  main.ts
+  routes/
+    index.route.ts
+  models/
+    test.model.ts
+  utils/
+```
+
+## `src/main.ts`
+
+This is the bootstrap boundary. It loads environment variables, creates `HttpServer`, conditionally creates `Connect`, and starts listening.
+
+## `src/routes`
+
+HttpServer always scans src/routes recursively. Accepted suffixes are .route.ts, .route.js, .route.mjs, and .route.cjs; NODE_ENV does not select a dist directory. The starter runs source through tsx. Every discovered module must have a default class export extending `Router`.
+
+Directory and file names become URL segments:
+
+| File                            | Route prefix     |
+| ------------------------------- | ---------------- |
+| `routes/index.route.ts`         | `/`              |
+| `routes/users/user.route.ts`    | `/users`         |
+| `routes/users/profile.route.ts` | `/users/profile` |
+| `routes/users/$id.route.ts`     | `/users/:id`     |
+
+The configured `prefix` is applied to each route after this conversion.
+
+## `src/models`
+
+The model loader prefers src/models whenever that directory exists, otherwise dist/models, regardless of NODE_ENV. Files must match `.model.ts`, `.model.js`, `.model.mjs`, or `.model.cjs`, export a default class, and provide a static `initialize(sequelize)` method.
+
+```ts
+export default class Test extends Model {
+  static initialize(sequelize: Sequelize) {
+    Test.init(
+      {
+        id: { type: DataTypes.STRING, primaryKey: true },
+        message: { type: DataTypes.STRING, allowNull: false },
+      },
+      { sequelize, tableName: 'test', timestamps: false },
+    );
+  }
+}
+```
+
+The loader initializes all models, then awaits optional associate methods. Development always runs `sync({ alter: true })`; outside development synchronization is disabled unless its internal loader option requests it. Public Connect passes its authenticated connection to the loader without enabling production synchronization.
+
+> **Naming matters**
+>
+> A correctly exported model with a different filename is not discovered. Keep the `.model` suffix and the default export contract.
+
+## Optional generated integrations
+
+The CLI keeps the same directory layout. Redis selection adds the runtime
+dependency and imports its singleton in main.ts, awaits connect before listen,
+and disconnects in the existing shutdown finally path. No separate Redis enable
+environment flag is added. RateLimit uses HttpServer.rateLimit and environment
+settings; Redis storage is selected independently. Socket.IO utility generation
+remains conditional on the existing Socket.IO prompt.

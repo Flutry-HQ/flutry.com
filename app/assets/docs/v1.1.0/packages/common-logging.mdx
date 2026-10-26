@@ -1,0 +1,57 @@
+The common package creates one shared Winston-backed logger and exports a stable Flutry interface around it.
+
+```ts
+import { logger } from '@flutry/common';
+
+logger.info('Server started', { port: 1337 });
+logger.http('GET /health', { statusCode: 200, durationMs: 4 });
+logger.debug('Parsed request', { requestId: 'req-1' });
+logger.warn('Cache miss', { key: 'user:1' });
+```
+
+## Error overloads
+
+All of these forms are supported:
+
+```ts
+logger.error('Could not load user', { userId: 'user-1' });
+logger.error(new Error('Could not load user'));
+logger.error(new Error('Could not load user'), { requestId: 'req-1' });
+logger.error('Could not load user', new Error('Connection unavailable'), { userId: 'user-1' });
+```
+
+Error names, messages, stacks, and custom own properties are extracted into log metadata. Unknown thrown values are normalized instead of being silently discarded.
+
+## Levels and files
+
+The levels are `error`, `warn`, `info`, `http`, and `debug`. `LOG_LEVEL` controls the active threshold. Without it, production defaults to `info` and non-production environments default to `debug`.
+
+The logger writes colorized output to the console and plain output to daily rotating files in `logs/`. File archives rotate at 20 MB and are retained for 30 days. The directory is relative to the current working directory.
+
+## Reliability and integrations
+
+Formatting handles BigInt, circular values, errors, functions, and symbols, with
+an inspection fallback. Transport and Winston error listeners report failures
+directly to stderr; a failed file transport is removed. Initial file creation can
+still fail, so verify directory permissions at deployment. This is formatting
+safety, not automatic secret redaction.
+
+The internal module defines Winston and stream helpers, but `httpLogStream` and
+`rawWinstonLogger` are not root exports. Use the public logger in an adapter:
+
+```ts
+import { logger } from '@flutry/common';
+
+const stream = {
+  write(message: string): void {
+    logger.http(message.trim());
+  },
+};
+// Supply stream to an HTTP logger accepting a write(message) adapter.
+```
+
+Native Fastify logging is configured separately through `HttpServer.logger`.
+Flutry's lifecycle logs pathnames outside development and full URLs in development.
+The `http` level is below the default production `info` threshold; choose
+`LOG_LEVEL=http` if needed. Do not log credentials, tokens, or sensitive bodies.
+Import `dotenv/config` before framework imports when log settings come from .env.

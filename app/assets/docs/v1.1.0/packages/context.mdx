@@ -1,0 +1,46 @@
+`Ctx` is the small adapter between a route handler and Fastify's request/reply objects. It exposes request data and common response operations without requiring handlers to depend on Fastify directly.
+
+```ts
+this.get('/:id', async (ctx) => {
+  const { id } = ctx.params as { id: string };
+  const { verbose } = ctx.query as { verbose?: string };
+  const hasAuthorization = ctx.getHeader('authorization') !== undefined;
+
+  return ctx.send({ id, verbose, hasAuthorization });
+});
+```
+
+## Request accessors
+
+- `params` returns route parameters.
+- `body` returns the parsed request body.
+- `query` returns query-string values.
+- `getHeader(name)` reads a request header using a case-insensitive lookup.
+
+## Response methods
+
+```ts
+this.post('/', async (ctx) => {
+  ctx.setHeader('x-flutry', 'created');
+  return ctx.status(201).send({ ok: true });
+});
+
+this.get('/login', (ctx) => ctx.redirect('/dashboard', 302));
+
+this.get('/empty', (ctx) => ctx.end());
+```
+
+`send(data, code?)` sends a response and optionally sets the status code. `status(code)` sets the status and returns the actual Fastify reply for chaining. `redirect(url, code?)` redirects, `getHeader(name)` reads a request header, `setHeader(name, value)` sets a response header, and `end()` sends an empty response.
+
+`CtxHandler` is defined as `(ctx: Ctx) => unknown | Promise<unknown>`, so synchronous and asynchronous handlers are both valid.
+
+## Types, validation, and rate limits
+
+`params`, `body`, and `query` are typed `unknown`. Validate external data before
+using it; an assertion in a small example does not perform runtime validation.
+`ctx.req` exposes the Fastify request, including its proxy-aware `ip`, and
+`ctx.reply` exposes the reply. There is no `ctx.request` or `ctx.header()` alias.
+
+Await a reusable `RateLimit.handle(ctx)` before protected route work. Its 429
+rejection stops subsequent code through the existing error pipeline. See
+[Rate limiting](/docs/v1.1.0/packages/rate-limit).

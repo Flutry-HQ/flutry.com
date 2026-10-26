@@ -1,0 +1,55 @@
+# Flutry v1.1.0
+
+Flutry is a TypeScript-first backend framework for Node.js. Its core is a Fastify-based HTTP server with file-based route discovery, a small request context API, optional Socket.IO support, and focused packages for databases, Redis, logging, tokens, encryption, and identifiers.
+
+## What you will learn
+
+- how to create and start a Flutry application;
+- how route and model discovery maps files to runtime behavior;
+- how the `@flutry/server`, `@flutry/common`, `@flutry/database-sequlize`, and `@flutry/redis` packages fit together;
+- how to use the Flutry CLI to create projects and generate files.
+
+<details>
+<summary>Package map</summary>
+
+| Package                     | Responsibility                                         |
+| --------------------------- | ------------------------------------------------------ |
+| `@flutry/server`            | Fastify HTTP server, routes, context, and Socket.IO    |
+| `@flutry/common`            | logger, JWT, encryption, and Snowflake IDs             |
+| `@flutry/database-sequlize` | Sequelize connection, model loading, and native queries |
+| `@flutry/redis`             | Lazy JSON cache, connection management, atomic counters        |
+| `@flutry/cli`               | project creation and route/model generators            |
+
+</details>
+
+> **Version note**
+>
+> This is release-candidate documentation for the current working tree, not a claim that every package is published as version 1.1.0. Read the migration guide first; database integration and public compatibility still require release verification. The package names and the `database-sequlize` spelling follow the published source exactly.
+
+## Start here
+
+1. [Installation](/docs/v1.1.0/getting-started/installation)
+2. [Quick start](/docs/v1.1.0/getting-started/quick-start)
+3. [Project structure](/docs/v1.1.0/getting-started/project-structure)
+4. [Configuration](/docs/v1.1.0/getting-started/configuration)
+5. [Server package](/docs/v1.1.0/packages/server)
+
+## Detailed references
+
+- [Complete application recipe](/docs/v1.1.0/getting-started/application-recipe)
+- [Server API reference](/docs/v1.1.0/packages/api-reference)
+- [Socket.IO](/docs/v1.1.0/packages/sockets)
+- [Database CRUD and transactions](/docs/v1.1.0/packages/database-crud)
+- [Database models and associations](/docs/v1.1.0/packages/database-models)
+- [Logging](/docs/v1.1.0/packages/common-logging)
+- [Snowflake IDs](/docs/v1.1.0/packages/common-snowflake)
+- [Redis lifecycle](/docs/v1.1.0/packages/redis-lifecycle)
+- [CLI workflow](/docs/v1.1.0/cli/workflow)
+
+## New in this candidate
+
+Global and route-specific [rate limiting](/docs/v1.1.0/packages/rate-limit) supports
+bounded memory storage and optional atomic Redis counters. The CLI can configure
+both integrations interactively. Encryption is asynchronous; database helper
+functions have been removed in favor of native Sequelize methods. Review
+[Upgrading from v1.0.0 to v1.1.0](/docs/v1.1.0) before changing an existing app.

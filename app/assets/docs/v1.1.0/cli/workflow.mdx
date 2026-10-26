@@ -1,0 +1,156 @@
+The `new` command does not create an empty directory: it downloads the Flutry starter repository and then modifies it according to the answers. The target directory must not already exist.
+
+```bash
+npx @flutry/cli new
+```
+
+## Prompts and defaults
+
+| Prompt                   | Valid value / default                                                         |
+| ------------------------ | ----------------------------------------------------------------------------- |
+| Project folder           | must not be empty, `.` or `..`, and must not contain `/` or `\\`              |
+| Package name             | lowercase letters, numbers, and hyphens; defaults to a normalized folder name |
+| Enable database          | defaults to `true`                                                            |
+| Database name            | `flutrydb`                                                                    |
+| Database user            | `root`                                                                        |
+| Database host            | `localhost`                                                                   |
+| Database port            | `3306`, a port between 1 and 65535                                            |
+| Database type            | `mariadb`                                                                     |
+| Enable Socket.IO         | defaults to `true`                                                            |
+| Enable Redis integration? | false |
+| Enable global RateLimit? | false |
+| Maximum requests per window? | 100; only when RateLimit is enabled |
+| Time window in seconds? | 60; only when RateLimit is enabled |
+| Use Redis for RateLimit storage? | false; only when both integrations are enabled |
+| Package manager          | `npm`                                                                         |
+| Install dependencies now | defaults to `true`                                                            |
+
+The password prompt masks the database password while it is entered.
+
+## Generated files
+
+The CLI starts from the starter and then creates or updates:
+
+```text
+my-api/
+  .env
+  .env.example
+  package.json
+  README.md
+  src/
+    main.ts
+    routes/
+    models/
+    utils/
+      socket/index.ts       # only when Socket.IO is enabled
+```
+
+The `package.json` name is changed to the package-name prompt value. `.gitattributes` and `assets` are removed from the new project, and the README is replaced with a simple generated starter README.
+
+## Socket.IO selection
+
+When Socket.IO is enabled, the CLI applies this configuration to `main.ts`:
+
+```ts
+socket: {
+  cors: {
+    origin: '*',
+  },
+},
+```
+
+It also creates `src/utils/socket/index.ts`, which uses `getSocket()` to register connection and disconnect logs. When disabled, `socket: false` is written to the bootstrap, and the utility file is not created.
+
+> **CORS warning**
+>
+> The generated `origin: '*'` value is a starter setting. In production, restrict the Socket.IO origin to the actual frontend domains.
+
+## Environment files
+
+The real `.env` receives the supplied database values and random 64-byte hexadecimal secrets. `.env.example` contains empty database fields and `your_*` placeholder secrets.
+
+```bash
+cd my-api
+npm install
+npm run dev
+```
+
+If you declined the install prompt, the CLI prints the next step using the selected package manager. The CLI downloads into a private staging directory, applies settings, atomically reserves the destination with mkdir, then copies into it. On failure it removes the destination only when this invocation reserved it and publication did not finish; staging cleanup is also attempted.
+
+## Conflict-free generation
+
+```bash
+flutry generate route admin-users
+flutry generate model audit_event
+```
+
+The route name remains lowercase in the file path, while the class name becomes PascalCase (`AdminUsersRoute`, `AuditEvent`). The generator checks for existing files before writing and reports a conflict. Concurrent generation does not use exclusive file creation, so coordinate simultaneous commands.
+
+## Redis and RateLimit selection
+
+The Redis integration and RateLimit questions follow the existing Socket.IO prompt,
+in this exact order:
+
+1. `Enable Redis integration?` (false).
+2. `Enable global RateLimit?` (false).
+3. If RateLimit is selected: `Maximum requests per window?` (100), then
+   `Time window in seconds?` (60).
+4. Only when both integrations are selected: `Use Redis for RateLimit storage?`
+   (false).
+
+Maximum and window must be positive safe integers; window seconds must remain
+safe when converted to milliseconds. Invalid values are re-prompted. Folder
+validation also rejects path separators, Windows-invalid characters, trailing
+dots/spaces, and leading/trailing whitespace.
+
+| Redis | RateLimit | Storage question | Result |
+| --- | --- | --- | --- |
+| No | No | Not asked | No Redis import or quota |
+| No | Yes | Not asked | Memory quota |
+| Yes | No | Not asked | Redis initialized for application use |
+| Yes | Yes | Answer no | Redis integration plus memory quota |
+| Yes | Yes | Answer yes | Redis integration plus distributed quota |
+
+## Dependencies, startup, and shutdown
+
+Redis selection adds `@flutry/redis: latest` to runtime dependencies, using the
+existing install operation for npm, Yarn, or pnpm. Declining immediate installation
+keeps that dependency in package.json for the later install. Without selection,
+the dependency and Redis imports are absent.
+
+The generated main.ts awaits redis.connect() after optional database readiness and
+before server.listen(). Shutdown closes HTTP, then the database, then Redis in a
+nested finally path. Explicit Redis startup failure prevents listening and invokes
+cleanup. It does not silently change the selected quota backend.
+
+Global limits remain configured through HttpServer and environment settings, not
+an unrelated middleware system.
+
+## Generated environment choices
+
+Both environment files retain selected nonsecret settings:
+
+```env
+RATE_LIMIT_ENABLED=true
+RATE_LIMIT_MAX=37
+RATE_LIMIT_WINDOW=120
+RATE_LIMIT_REDIS=false
+RATE_LIMIT_NAME=my-api:global
+```
+
+The numbers above illustrate custom answers. Disabled limits use enabled=false and
+the default quota/window. RateLimit without Redis automatically uses memory.
+
+When Redis integration is selected, both files also include:
+
+```env
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
+REDIS_PREFIX=
+```
+
+Redis connection configuration and RATE_LIMIT_REDIS are separate concerns. There is
+no REDIS enable boolean. Set a namespace/prefix and real credentials for production;
+never place real credentials in .env.example. Database examples remain blank and
+secret examples use placeholders. See [RateLimit](/docs/v1.1.0/packages/rate-limit).

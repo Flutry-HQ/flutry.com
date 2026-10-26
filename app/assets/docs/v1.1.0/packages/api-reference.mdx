@@ -1,0 +1,132 @@
+This page collects the public `@flutry/server` contracts in one place. The package intentionally exposes a small application API while keeping the underlying Fastify objects available through `HttpServer.app` and `Ctx.req`/`Ctx.reply` when an integration needs them.
+
+## `HttpServer`
+
+```ts
+import { HttpServer } from '@flutry/server';
+
+const server = new HttpServer({
+  trustProxy: false,
+  logger: true,
+  prefix: '/api',
+  compression: true,
+  helmet: true,
+  socket: false,
+});
+
+const address = await server.listen(1337, '127.0.0.1');
+console.log(`Listening on ${address}`);
+
+// Call this from a shutdown handler.
+await server.close();
+```
+
+`HttpServer` performs setup in its constructor, but route discovery and socket utility loading happen in `listen`. This means route module errors appear during startup and are not deferred until the first request.
+
+## `HttpOptions`
+
+`HttpOptions` extends Fastify's `Partial<FastifyServerOptions>` and makes these Flutry fields optional:
+
+| Field         | Type                              | Meaning                                         |
+| ------------- | --------------------------------- | ----------------------------------------------- |
+| `trustProxy`  | Fastify native trustProxy type                         | Fastify proxy trust setting                     |
+| `logger`      | Fastify native logger type                         | Enables or disables Fastify logging             |
+| `prefix`      | `string`                          | Prefix applied to discovered application routes |
+| `compression` | `boolean`                         | Registers `@fastify/compress` when enabled      |
+| `helmet`      | `boolean`                         | Registers `@fastify/helmet` when enabled        |
+| `socket`      | `false \| Partial<ServerOptions>` | Disables Socket.IO or passes its options        |
+
+```ts
+const server = new HttpServer({
+  trustProxy: false,
+  logger: false,
+  prefix: '/',
+  compression: false,
+  helmet: true,
+  socket: {
+    cors: { origin: ['https://example.com'] },
+  },
+});
+```
+
+## `Router` method contract
+
+The HTTP registration methods are `protected`, so they are called from a class extending `Router`:
+
+```ts
+export default class ResourceRoute extends Router {
+  constructor() {
+    super();
+    this.get('/', handler);
+    this.post('/', handler);
+    this.put('/:id', handler);
+    this.patch('/:id', handler);
+    this.delete('/:id', handler);
+    this.head('/', handler);
+    this.options('/', handler);
+  }
+}
+```
+
+The `RouteDefinition` shape is `{ method, path, handler }`. `CtxHandler` may return a value or a promise. The route loader wraps each handler in a `Ctx` before invoking it.
+
+## `RouteLoader`
+
+`RouteLoader` is exported for advanced integrations. Its options are:
+
+```ts
+type RouteLoaderOptions = {
+  directory: string;
+  prefix?: string;
+};
+```
+
+Normal applications should let `HttpServer` create and call it. Direct use is useful when embedding the loader into a custom Fastify lifecycle:
+
+```ts
+import Fastify from 'fastify';
+import { RouteLoader } from '@flutry/server';
+
+const app = Fastify();
+const loader = new RouteLoader(app, {
+  directory: './src/routes',
+  prefix: '/api',
+});
+
+await loader.load();
+```
+
+The loader is idempotent: subsequent `load()` calls do not register the same files again.
+
+## Fastify escape hatch
+
+```ts
+server.app.addHook('onRequest', async (request) => {
+  server.app.log.info({ url: request.url }, 'request received');
+});
+```
+
+Use this only for behavior that is not represented by the Flutry abstractions. Application routes should remain `Router` classes so file discovery and route prefixes continue to work consistently.
+
+## RateLimit public exports
+
+```ts
+import {
+  RateLimit, RateLimitExceededError, RateLimitUnavailableError,
+  type RateLimitOptions, type GlobalRateLimitOptions, type RateLimitResult,
+  type RateLimitKeyGenerator, type RateLimitSkip,
+} from '@flutry/server';
+
+const limiter = new RateLimit({ max: 100, window: 60, redis: false });
+```
+
+`new RateLimit(options?)` accepts the options listed on the
+[RateLimit page](/docs/v1.1.0/packages/rate-limit). Its public methods are
+`connect(): Promise<void>`, `handle(ctx): Promise<RateLimitResult>`, and
+`close(): Promise<void>`. A returned result has `allowed: true`, `limit`,
+`remaining`, and `reset` (relative seconds). Denied checks throw a 429 error;
+unavailable storage throws 503. Always await the check.
+
+`HttpOptions.rateLimit` accepts false or optional `GlobalRateLimitOptions`.
+All global fields are optional; global limiting is enabled only with
+`enabled: true`. No limiter is created when configuration is absent or disabled.

@@ -1,0 +1,45 @@
+The root-exported `snowflake` singleton generates sortable decimal string IDs. The internal `SnowflakeService` class is not re-exported.
+
+```ts
+import { snowflake } from '@flutry/common';
+
+const id = snowflake.generate();
+console.log(id); // string
+
+const anotherId = snowflake.generate();
+```
+
+## ID layout
+
+The implementation combines:
+
+1. milliseconds since the custom epoch `2023-01-01T00:00:00.000Z`;
+2. a 22-bit instance machine identifier;
+3. a 6-bit sequence for IDs generated during the same millisecond.
+
+The default machine identifier combines a MAC address and random bytes, reduced to 22 bits. On sequence exhaustion, logical time advances one millisecond without busy-waiting. Clock rollback retains the previous logical timestamp. IDs increase numerically within one generator; heavy throughput can advance logical time ahead of wall time.
+
+```ts
+const ids = Array.from({ length: 100 }, () => snowflake.generate());
+const uniqueIds = new Set(ids);
+
+console.log(uniqueIds.size === ids.length); // true
+```
+
+IDs are strings because a Snowflake value can exceed JavaScript's safe integer range. Store and transmit them as strings, including in JSON APIs and database primary keys.
+
+## Worker identity and storage
+
+Set a distinct `SNOWFLAKE_MACHINE_ID` for each concurrently active generator across
+workers and servers. It accepts an integer from 0 through 4,194,303, is read lazily,
+and remains fixed for that generator. Without it, random assignment reduces but
+does not eliminate cross-process collisions.
+
+Worker IDs do not preserve sequence state across restarts. Coordinate leases,
+clocks, and worker reuse, especially after clock rollback. Cross-process ordering
+and uniqueness across unsafe worker reuse are not guaranteed.
+
+The epoch and 22/6-bit shifts are unchanged, so existing decimal IDs keep their
+interpretation. IDs are not limited to signed or unsigned 64-bit capacity. Use
+string storage, for example VARCHAR(32) sized for the expected lifetime; do not
+cast IDs to Number or assume SQL BIGINT is sufficient.

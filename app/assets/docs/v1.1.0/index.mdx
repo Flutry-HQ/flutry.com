@@ -1,0 +1,394 @@
+# Upgrading from v1.0.0 to v1.1.0
+
+This guide describes the current Flutry working tree as a **v1.1.0 release
+candidate**. It is the first page in this version's navigation. The historical
+[v1.0.0 documentation](/docs/v1.0.0) remains available and unchanged.
+
+**Compatibility is not yet confirmed.** Verified public changes include removed
+database helpers and Promise-returning encryption. A stable 1.0-to-1.1 upgrade
+cannot be called backward-compatible without an explicit compatibility plan.
+A major framework version may be required. The requested documentation directory
+remains v1.1.0; no package versions are changed or packages published here.
+
+Under [Semantic Versioning](https://semver.org/#spec-item-8), incompatible changes
+to a stable public API require a major version. Individual 0.x packages have their
+own initial-development status; that does not establish compatibility of the
+framework-level v1.0.0 contract.
+
+## Comparison basis
+
+The comparison uses every v1.0.0 documentation page, current source/manifests/tests,
+and local Git history. There is no v1.0.0 Git tag in the inspected framework
+repositories, so an exact tagged source-to-source release comparison is unavailable.
+The documentation label is not a coordinated npm version. Packages retain their
+individual manifest versions, which can change independently while this candidate
+is prepared. Inspect the manifests and resolved lockfile rather than assuming
+every package has a published 1.1.0 artifact. A checkout version alone does not
+prove candidate features are present in the registry.
+
+Historical root exports and method signatures establish the changes below. Some
+v1.0.0 documentation advertised exports that were not present in the inspected
+historical index files; those are identified as documentation corrections.
+
+## What's new
+
+- [RateLimit](/docs/v1.1.0/packages/rate-limit): reusable route rules and optional
+  HttpServer-wide onRequest checks, with proper 429 headers.
+- Bounded memory storage without Redis, or atomic Lua quotas through the existing
+  optional Redis singleton. Explicit stable names identify distributed rules.
+- Configurable synchronous/asynchronous client keys, exemptions, health-path
+  exclusions, deadlines, and fail-closed 503 behavior.
+- [CLI integration](/docs/v1.1.0/cli/workflow): Redis and RateLimit default off,
+  quota/window questions when enabled, and Redis storage selection only when both
+  integrations are enabled.
+- Redis-selected generated projects add the dependency and await connection before
+  listening, then disconnect in shutdown cleanup. Memory-only projects need no Redis.
+- The starter exposes RATE_LIMIT_* settings and retains optional database startup
+  and controlled shutdown.
+
+## Improvements confirmed in source
+
+| Area | Current implementation |
+| --- | --- |
+| HTTP configuration | Native Fastify options forwarded; Flutry fields optional; trustProxy/logger retain native types |
+| Starter security | Proxy trust disabled by default; configure actual ingress explicitly |
+| Database ownership | One manager per process, owned failed-pool cleanup, shared reconnect work, ready/close lifecycle |
+| Database timezone | Fractional-hour offset arithmetic corrected |
+| Redis | Lazy client, shared connection/shutdown promises, transitional readiness states, bounded connection/command/QUIT waits |
+| Encryption | Async scrypt, identical pending work shared, completed key cache bounded to 100 entries with ten-minute expiry |
+| Snowflake | No busy-wait; logical sequence overflow and rollback handling; optional worker IDs; decimal width documented accurately |
+| Logger | BigInt/circular formatting and transport error handlers; failed file transport removed |
+| Routes | Compiled filename suffixes recognized; invalid modules reject startup; production URL logging strips query strings |
+| Socket.IO | preClose cleanup before HTTP draining; onClose global-reference release |
+| CLI | Private staging, exclusive target reservation, owned cleanup, quoted environment values, unread stdout pipe removed |
+| Types/exports | Public RateLimit contracts added; existing context and actual root exports clarified |
+
+These improvements do **not** establish universal compiled CommonJS/ESM support or
+live database success. Read the compatibility and validation notes below.
+
+## Breaking change: encryption is asynchronous
+
+**What changed and why:** encrypt/decrypt now return `Promise<string>`, using async
+scrypt so key derivation does not synchronously block the event loop.
+
+Before, as documented for v1.0.0 and present in historical source:
+
+```ts title="Before: v1.0.0"
+const encrypted = encryption.encrypt('private value');
+const plain = encryption.decrypt(encrypted);
+```
+
+Now, inside an async function:
+
+```ts
+import { encryption } from '@flutry/common';
+
+async function encryptAndRead(): Promise<string> {
+  const encrypted = await encryption.encrypt('private value');
+  return await encryption.decrypt(encrypted);
+}
+```
+
+1. Find every encrypt/decrypt caller, including custom-secret overloads.
+2. Add await and propagate async return types through services/routes.
+3. Do not pass a Promise to JSON, Redis, database fields, or response payloads.
+4. Retain SECRET_KEY and SECRET_SALT for historical data.
+5. Test stored ciphertext and password hashes before rotating credentials.
+
+The AES-GCM Base64 payload layout is unchanged. hashPassword/comparePassword were
+already asynchronous; their call syntax remains awaited. clearCache() clears
+completed cached keys and does not cancel pending derivations.
+
+## Breaking change: database wrapper helpers removed
+
+**What changed and why:** the package root no longer exports findOne, findAll,
+findByPk, exists, create, update, destroy, count, or transaction. The deprecated
+wrapper file is deleted; native Sequelize models are the supported query API.
+
+Before:
+
+```ts title="Before: v1.0.0"
+import { findOne, create, transaction } from '@flutry/database-sequlize';
+const user = await findOne(User, { where: { email } });
+const created = await create(User, attributes);
+const result = await transaction(Connect.sequelize, callback);
+```
+
+Now, in a service using your initialized model:
+
+```ts
+import { Connect } from '@flutry/database-sequlize';
+import User from './models/user.model';
+
+async function findUser(email: string) {
+  const user = await User.findOne({ where: { email } });
+  return user?.get({ plain: true }) ?? null;
+}
+async function createUser() {
+  return Connect.sequelize.transaction(async (tx) => {
+    const user = await User.create({
+      id: 'user-1', email: 'ada@example.com', displayName: 'Ada', active: true,
+    }, { transaction: tx });
+    return user.get({ plain: true });
+  });
+}
+```
+
+Replace each helper import and call with the corresponding model method.
+Replace exists with an intentional count/existence query. Native find/create
+results are model instances; convert explicitly where callers expected plain
+objects. Native update returns affected-count/dialect-specific results, not a
+portable list of changed rows. Use where filters and pass transactions explicitly.
+Do not retain imports of the removed internal Database wrapper.
+
+The package spelling stays **@flutry/database-sequlize**. Do not change it to
+database-sequelize. See [CRUD](/docs/v1.1.0/packages/database-crud).
+
+## Database lifecycle and model initialization
+
+The old documentation awaited a constructor, which is not a readiness barrier:
+
+```ts title="Before: v1.0.0"
+await new Connect(options);
+await server.listen(1337);
+```
+
+Now retain ownership and await the public readiness Promise:
+
+```ts
+import { Connect } from '@flutry/database-sequlize';
+
+const database = new Connect({
+  host: 'localhost', port: 3306, database: 'flutry',
+  username: 'app_user', password: process.env.DB_PASS ?? '', dialect: 'mariadb',
+});
+async function initializeDatabase() {
+  await database.ready;
+}
+async function closeDatabase() {
+  await database.close();
+}
+```
+
+One manager per process is now enforced; code constructing multiple managers must
+change its ownership design. Await startup and handle rejection; the library
+does not exit the process after exhausted retries. Close resources on startup
+failure and shutdown.
+
+Connect now passes its authenticated connection using
+`new Models({ sequelize: connection }).init()`, matching the required constructor
+contract. The package type check passes. Verify actual readiness, model failures,
+schema state, and shutdown against your own database; live database behavior was
+not established by the documentation checks.
+
+The loader initializes all models, awaits associations, and propagates failures.
+It prefers src/models if present, otherwise dist/models. Development always uses
+`sync({ alter: true })`; outside development synchronization defaults off in the
+internal loader. Connect has no public sync option. Do not invent DB_SYNC or a
+migration command; apply your application's reviewed migration tooling.
+
+### Breaking behavior: one manager per process
+
+Historical code could construct separate Connect managers, even though they shared
+static connection state:
+
+```ts title="Before: historical manager ownership"
+const first = new Connect(options);
+const second = new Connect(options);
+```
+
+The second construction now throws while the first owns the connection. This
+prevents managers from overwriting and closing each other's shared connection.
+Construct the single database object shown above once and pass it to dependent
+services instead of constructing another manager:
+
+```ts
+import { Connect } from '@flutry/database-sequlize';
+
+async function waitForDatabase(database: Connect): Promise<void> {
+  await database.ready;
+}
+```
+
+Remove duplicate constructors and give one owner responsibility for close(). If
+multiple databases are required, use explicitly owned native Sequelize instances
+or postpone migration; the Connect wrapper does not offer a multi-manager mode.
+
+### Breaking behavior: production schema synchronization
+
+The historical loader called ordinary sync() outside development, and v1.0.0
+documented production schema creation during initialization. Current Connect
+does not enable that internal loader option, so production startup no longer
+creates or synchronizes tables. Schema changes belong to an explicit deployment
+step rather than implicit application startup.
+
+Before, a fresh deployment could rely on initialization to perform:
+
+```ts title="Before: historical automatic schema step"
+await Connect.sequelize.sync();
+```
+
+Now provision and migrate the schema with your existing reviewed tooling before
+starting the new application, then await database.ready as shown above. There is
+no new public sync flag or Flutry migration command. Test a fresh database and an
+upgraded existing schema, and retain the old deployment and backup for rollback.
+Development still always uses alter: true and must not target production data.
+
+## Breaking change: Redis root export and ownership
+
+The historical v1.0.0 docs used redisService. Commit 74d548e exported the class
+under that alias; commit 8592131 switched the entry point to the redis singleton.
+The old docs' static singleton usage was not consistent with that older class
+export. An exact v1.0.0 tag mapping cannot be established.
+
+Historical class-based usage:
+
+```ts title="Before: historical Redis API"
+import { redisService } from '@flutry/redis';
+const cache = new redisService();
+```
+
+Current usage:
+
+```ts
+import { redis } from '@flutry/redis';
+
+async function initializeCache() {
+  await redis.connect();
+  await redis.set('flags', { beta: true }, 60);
+}
+async function closeCache() {
+  await redis.disconnect();
+}
+```
+
+Replace redisService imports with redis, remove constructor calls, and use the
+shared singleton. No RedisService constructor is exported from the root. Projects
+requiring independent Redis connections must resolve that design before upgrade.
+
+Import alone is lazy. Explicit connect() establishes readiness; operations also
+connect as needed. Supplied TTL must be a positive safe integer: omit it for no
+expiration instead of passing zero. Errors/timeouts reject rather than guaranteeing
+an offline queue. Audit cache fallback/retry policy; an interrupted write may have
+executed. Never apply fail-open cache behavior to explicitly enabled rate quotas.
+
+```env
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
+REDIS_PREFIX=
+```
+
+There is no separate Redis enable boolean. CLI selection changes dependencies and
+bootstrap code; connection settings and RateLimit backend selection are distinct.
+
+## Server and context adjustments
+
+- HttpOptions fields are optional and native Fastify configuration is forwarded.
+- The starter uses trustProxy=false. Replace unconditional trust with explicit
+  ingress addresses where appropriate.
+- Ctx exposes req/reply and getHeader(). params/body/query are unknown; validate
+  values rather than assuming property access is type-safe.
+- Router remains class-based. There is no standalone POST handler-object API.
+- HttpServer still resolves src/routes and src/utils/socket from cwd. Recognizing
+  JavaScript suffixes does not automatically deploy dist routes or solve native
+  CommonJS default-export interoperability.
+- Error responses mask server details; await RateLimit checks to stop protected work.
+
+## Documentation corrections, not verified removed exports
+
+The current and inspected historical common root index expose only logger, jwt,
+snowflake, and encryption. SnowflakeService, JWTService, EncryptionService,
+rawWinstonLogger, and httpLogStream were advertised in some old prose but are not
+verified former root exports. Use public singletons; do not classify a prose-only
+claim as a confirmed removed API.
+
+Snowflake's epoch and bit shifts are unchanged. Its variable-width decimal IDs
+were never guaranteed by that layout to fit 64 bits. Check existing storage,
+allocate unique active worker IDs, and coordinate restarts/clock rollback;
+SNOWFLAKE_MACHINE_ID alone does not preserve state across restart.
+
+## Step-by-step upgrade
+
+1. Back up the project, lockfile, deployment configuration, and database with your
+   existing backup tooling. Test restoration and retain encryption credentials.
+2. Review this candidate's breaking changes and validate its database lifecycle
+   and schema state in your integration environment.
+3. Obtain matching, tested framework artifacts. After the release owner has made
+   them available, update only dependencies your application uses:
+
+```bash
+npm install @flutry/server @flutry/common @flutry/database-sequlize
+# Only when Redis is used:
+npm install @flutry/redis
+```
+
+These commands select registry tags/ranges, not an invented coordinated 1.1.0
+package version. Verify what your lockfile actually resolves. Use equivalent
+commands for your chosen package manager. Updating the CLI does not rewrite an
+existing app; do not run new over an existing destination.
+
+4. Replace database helper and Redis imports and inspect model-instance return types.
+5. Add await to encryption/decryption callers and update their TypeScript signatures.
+6. Load dotenv/config before imports; retain a single database manager, await ready,
+   and close it in finally after HTTP shutdown.
+7. If Redis is selected, await its connection before listening and disconnect even
+   if another cleanup operation fails. The
+   [complete application recipe](/docs/v1.1.0/getting-started/application-recipe)
+   provides an application-owned bootstrap.
+8. Enable RateLimit separately, initially with memory for one process:
+
+```env
+RATE_LIMIT_ENABLED=true
+RATE_LIMIT_MAX=100
+RATE_LIMIT_WINDOW=60
+RATE_LIMIT_REDIS=false
+RATE_LIMIT_NAME=my-app:global
+```
+
+For distributed quotas, install a matching Redis package, use a stable rule name,
+and set RATE_LIMIT_REDIS=true with valid REDIS_* connection settings. A failed
+Redis quota must reject startup or requests; it must not switch to memory.
+
+```ts
+import { RateLimit } from '@flutry/server';
+
+const loginLimit = new RateLimit({
+  max: 5, window: 60, redis: true, name: 'my-app:auth:login',
+});
+// In an async Router handler:
+// await loginLimit.handle(ctx);
+// Register loginLimit.connect()/close() with the owner's onReady/onClose hooks.
+```
+
+9. Run available application checks and build/test each changed library:
+
+```bash
+npm run typecheck
+npm test
+```
+
+The starter runs source through tsx and has no build script. Framework packages
+have npm run build. Do not claim build success from typechecking alone.
+10. Verify normal/blocked traffic, headers, expiration, Redis outage/recovery,
+    shutdown with sockets/requests, dependency readiness, model failures, historical
+    ciphertext, and ID storage on the intended production runtime. Release only
+    after compatibility and integration behavior are verified. Check discovered
+    test counts: a successful runner with zero tests does not establish coverage.
+
+## Migration checklist
+
+- [ ] Project/database backups can be restored; historical encryption credentials retained.
+- [ ] Actual installed package artifacts and lockfiles reviewed; no assumed 1.1.0 npm versions.
+- [ ] Removed query helpers replaced; plain-object expectations checked.
+- [ ] Encryption/decryption awaited through all callers.
+- [ ] Redis imports use redis and TTL values are valid.
+- [ ] One database manager, ready awaited, and shutdown cleanup registered.
+- [ ] Database initialization, associations, schema state, and cleanup live-tested before DB use.
+- [ ] Proxy configuration and request validation reviewed.
+- [ ] Optional quotas use the intended backend; stable names match across replicas.
+- [ ] Redis failures never silently fall back to memory.
+- [ ] Route-specific Redis rules and application-owned connections close appropriately.
+- [ ] Snowflake worker reuse, clock behavior, and string storage checked.
+- [ ] Type checks, builds, tests, outage tests, and production smoke tests pass.
+- [ ] Release owner resolves breaking-change versioning before approving a stable release.

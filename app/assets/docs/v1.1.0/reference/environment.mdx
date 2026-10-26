@@ -1,0 +1,72 @@
+# Environment variables
+
+The application imports dotenv/config before framework modules. The starter and
+CLI-generated main.ts translate environment strings into HttpServer/Connect options.
+
+| Variable | Reader | Default or accepted values |
+| --- | --- | --- |
+| PORT | Starter | 1337, converted to Number |
+| HOST | Starter | 0.0.0.0 fallback; base example uses 127.0.0.1 |
+| PREFIX_API | Starter | / |
+| NODE_ENV | Runtime/scripts | dev sets development; start sets production |
+| DB | Starter | Only the string true enables database startup |
+| DB_HOST | Starter | localhost fallback |
+| DB_PORT | Starter | 3306 fallback |
+| DB_NAME | Starter | flutry fallback |
+| DB_USER | Starter | root fallback |
+| DB_PASS | Starter | Empty fallback |
+| DB_DIALECT | Starter | mysql or mariadb; mariadb fallback |
+| SECRET_KEY | Common encryption | Required default encryption secret |
+| SECRET_SALT | Common encryption | Required for default and custom encryption secrets |
+| JWT_SECRET_KEY | Common JWT | Required; captured at module load |
+| JWT_EXPIRATION_TIME | Common JWT | 1h; captured at module load |
+| LOG_LEVEL | Common logger | info in production, debug otherwise; captured at module load |
+| SNOWFLAKE_MACHINE_ID | Common Snowflake | Optional integer 0–4194303, read on first generation |
+| REDIS_HOST | Redis | Service fallback 127.0.0.1; CLI writes localhost |
+| REDIS_PORT | Redis | 6379 |
+| REDIS_PASSWORD | Redis | Empty means no password |
+| REDIS_PREFIX | Redis | Empty prefix |
+| RATE_LIMIT_ENABLED | Starter | false; only true enables the global rule |
+| RATE_LIMIT_MAX | Starter/server | 100, positive safe integer |
+| RATE_LIMIT_WINDOW | Starter/server | 60 seconds, positive integer safely convertible to milliseconds |
+| RATE_LIMIT_REDIS | Starter/server | false; selects Redis storage for an enabled rule |
+| RATE_LIMIT_NAME | Starter/server | Base starter flutry:global; CLI package-name:global |
+
+Nullish fallbacks apply to missing variables, not empty strings. Set complete,
+valid database values before enabling DB. Do not infer driver validation from
+TypeScript casts. Follow the readiness and schema rules documented on the
+[Database page](/docs/v1.1.0/packages/database).
+
+## Example optional integrations
+
+```env
+RATE_LIMIT_ENABLED=false
+RATE_LIMIT_MAX=100
+RATE_LIMIT_WINDOW=60
+RATE_LIMIT_REDIS=false
+RATE_LIMIT_NAME=my-api:global
+
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
+REDIS_PREFIX=
+```
+
+Redis variables configure an existing singleton; they do not enable a connection.
+The base starter uses Redis only for an enabled Redis-backed rule. CLI-selected
+Redis additionally generates explicit connect/disconnect calls. Redis-disabled
+CLI projects omit REDIS_* variables, while retaining disabled RateLimit settings.
+No separate Redis enable variable is supported.
+
+Memory limits are process-local and require no Redis. Redis quotas require the
+updated optional package and a working service, and fail closed on errors. Stable
+names identify rules across replicas; prefixes separate applications.
+
+## Production checklist
+
+- Load secrets before importing common services, and keep real secrets outside Git.
+- Set NODE_ENV=production and use your application's reviewed schema migration process.
+- Allocate Snowflake worker IDs and store IDs as decimal strings, not BIGINT/Number.
+- Confirm optional Redis readiness, outage behavior, and controlled shutdown.
+- Configure HOST and explicit trusted proxies for the deployment topology.
+- Verify [deployment checks](/docs/v1.1.0/reference/deployment) before release.

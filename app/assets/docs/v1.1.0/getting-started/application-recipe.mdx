@@ -1,0 +1,155 @@
+# Complete application recipe
+
+This example combines routes, native database queries, Redis caching, JWT, logging,
+and optional global limits. Install the Redis and database packages only for the
+parts you use. See [Database](/docs/v1.1.0/packages/database) for readiness and
+schema behavior. Keep DB=false when exercising only the HTTP/Redis parts; live
+database integration must be tested against your own provisioned schema.
+
+## Bootstrap with explicit Redis ownership
+
+This is the shape generated when Redis integration is selected. The base starter
+without Redis selection has no Redis import or explicit connection calls.
+
+```ts
+// src/main.ts
+import 'dotenv/config';
+import { Connect, type DatabaseDialect } from '@flutry/database-sequlize';
+import { HttpServer } from '@flutry/server';
+import { redis } from '@flutry/redis';
+
+const server = new HttpServer({
+  trustProxy: false, logger: false, compression: true, helmet: true,
+  prefix: process.env.PREFIX_API ?? '/', socket: false,
+  rateLimit: {
+    enabled: process.env.RATE_LIMIT_ENABLED === 'true',
+    max: Number(process.env.RATE_LIMIT_MAX ?? 100),
+    window: Number(process.env.RATE_LIMIT_WINDOW ?? 60),
+    redis: process.env.RATE_LIMIT_REDIS === 'true',
+    name: process.env.RATE_LIMIT_NAME ?? 'my-api:global',
+  },
+});
+let database: Connect | undefined;
+let stopping: Promise<void> | undefined;
+function shutdown(): Promise<void> {
+  return stopping ??= (async () => {
+    try {
+      await server.close();
+    } finally {
+      try {
+        await database?.close();
+      } finally {
+        await redis.disconnect();
+      }
+    }
+  })();
+}
+async function bootstrap(): Promise<void> {
+  try {
+    if (process.env.DB === 'true') {
+      database = new Connect({
+        host: process.env.DB_HOST ?? 'localhost',
+        port: Number(process.env.DB_PORT ?? 3306),
+        database: process.env.DB_NAME ?? 'flutry',
+        username: process.env.DB_USER ?? 'root',
+        password: process.env.DB_PASS ?? '',
+        dialect: (process.env.DB_DIALECT as DatabaseDialect) ?? 'mariadb',
+      });
+      await database.ready;
+    }
+    await redis.connect();
+    await server.listen(Number(process.env.PORT ?? 1337), process.env.HOST ?? '127.0.0.1');
+  } catch (error) {
+    console.error('Application startup failed:', error);
+    process.exitCode = 1;
+    await shutdown();
+  }
+}
+for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+  process.once(signal, () => {
+    void shutdown().catch((error) => {
+      console.error('Shutdown failed:', error);
+      process.exitCode = 1;
+    });
+  });
+}
+void bootstrap().catch(console.error);
+```
+
+Do not swallow failures from redis.connect() when Redis integration is explicitly
+required. RateLimit's own storage choice remains independent.
+
+## Route and service layers
+
+Use the User model from [CRUD](/docs/v1.1.0/packages/database-crud). Await database
+readiness before queries. Redis `get<T>()` is not a runtime schema validator.
+
+```ts
+// src/routes/users/users.service.ts
+import { redis } from '@flutry/redis';
+import User from '../../models/user.model';
+
+type UserView = { id: string; email: string; displayName: string };
+export async function getUser(id: string): Promise<UserView | null> {
+  const cacheKey = `user:${id}`;
+  const cached = await redis.get<UserView>(cacheKey);
+  if (cached) return cached;
+  const user = await User.findByPk(id);
+  if (!user) return null;
+  const plain: UserView = { id: user.id, email: user.email, displayName: user.displayName };
+  await redis.set(cacheKey, plain, 300);
+  return plain;
+}
+```
+
+```ts
+// src/routes/users/users.route.ts
+import { RateLimit, Router } from '@flutry/server';
+import { getUser } from './users.service';
+
+const lookupLimit = new RateLimit({ max: 30, window: 60 });
+export default class UsersRoute extends Router {
+  constructor() {
+    super();
+    this.get('/:id', async (ctx) => {
+      await lookupLimit.handle(ctx);
+      const { id } = ctx.params as { id: string };
+      const user = await getUser(id);
+      if (!user) return ctx.send({ message: 'User not found' }, 404);
+      return ctx.send(user);
+    });
+  }
+}
+```
+
+The file receives /users, so the endpoint is /users/:id, or /api/users/:id with
+PREFIX_API=/api. Adapt parameter validation to your schema.
+
+## JWT authentication pattern
+
+```ts
+import { jwt } from '@flutry/common';
+import { Router } from '@flutry/server';
+
+export default class MeRoute extends Router {
+  constructor() {
+    super();
+    this.get('/', (ctx) => {
+      const authorization = ctx.getHeader('authorization');
+      const token = authorization?.startsWith('Bearer ') ? authorization.slice(7) : null;
+      if (!token) return ctx.send({ message: 'Unauthorized' }, 401);
+      try {
+        const payload = jwt.verifyToken(token);
+        return ctx.send({ payload });
+      } catch {
+        return ctx.send({ message: 'Invalid token' }, 401);
+      }
+    });
+  }
+}
+```
+
+There is no built-in auth middleware or guard. Verify signatures before trusting
+claims and enforce authorization in application code. Never return password hashes
+or tokens merely because they exist on a database model. For account-specific
+quotas, generate the key from trusted authentication state after verification.

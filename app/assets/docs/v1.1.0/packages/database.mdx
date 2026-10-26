@@ -1,0 +1,104 @@
+# Database
+
+The manifest and root imports use the spelling `@flutry/database-sequlize`.
+
+```bash
+npm install @flutry/database-sequlize
+```
+
+```ts
+import { Connect, DataTypes, Model, Op, Sequelize, type DatabaseDialect } from '@flutry/database-sequlize';
+```
+
+The root exports these names only; the old query helper functions and Database
+wrapper have been removed. DatabaseOptions and the model loader are internal
+module types/classes, not additional root exports.
+
+## Initialization contract
+
+Connect authenticates its owned connection and passes it to
+`new Models({ sequelize: connection }).init()`. The constructor and initializer
+contracts are aligned, and the package type check passes. The lifecycle examples
+below compile against its public declarations. Live database startup, migrations,
+and failure recovery still need verification against your deployment database;
+type checking alone is not a live integration test.
+
+## Connection and readiness
+
+```ts
+import { Connect } from '@flutry/database-sequlize';
+
+const database = new Connect({
+  database: 'flutry',
+  username: 'app_user',
+  password: process.env.DB_PASS ?? '',
+  host: 'localhost',
+  port: 3306,
+  dialect: 'mariadb',
+});
+
+async function useDatabase(): Promise<void> {
+  await database.ready;
+  console.log(Connect.isConnected);
+  // Reconnect only after initial readiness has succeeded.
+  await database.reconnect();
+  await database.close();
+}
+void useDatabase().catch(console.error);
+```
+
+DatabaseDialect is mysql or mariadb. Constructor options are database, username,
+password, host, port, and dialect. Initialization starts immediately, but the object
+is not a Promise: await database.ready, not await new Connect(...).
+
+One manager is supported per process; constructing another while ownership is held
+throws. close() waits for startup and reconnect work, closes its pool, and releases
+ownership. Concurrent reconnect calls share a Promise; initial failure rejects
+ready after at most five attempts with five-second delays. The library does not
+terminate the process itself. Retry cleanup closes the specific failed connection.
+
+Connect.sequelize is published after authentication. Wait for ready before queries,
+not merely that static property's existence. isConnected is tracked initialization
+state, not a continuous network health probe.
+
+The pool has max 10, min 2, acquire 30 seconds, and idle 10 seconds. Connection
+timeout is 15 seconds; selected network errors also have Sequelize retries.
+Connection defaults include utf8mb4/binary collation and the host's fixed timezone
+offset, including corrected fractional-hour arithmetic.
+
+## Model initialization and schema synchronization
+
+The loader prefers src/models when present, otherwise dist/models. It discovers
+.model.ts/.js/.mjs/.cjs, expects a default class with static initialize(sequelize),
+and awaits initialization and later optional associate(models) calls. Import,
+initialization, association, and sync errors propagate.
+
+Development uses `sync({ alter: true })` unconditionally. Outside development the
+loader's internal sync option defaults to false; true requests ordinary sync().
+That internal option is not exposed by public DatabaseOptions or Connect.
+Connect supplies only sequelize, so it uses the loader's default: no automatic
+synchronization outside development. There is no public production sync switch.
+
+Use reviewed schema migrations supplied by your application tooling. Flutry does
+not provide a migration command. Never point development alteration at valuable
+production data.
+
+## Native model queries
+
+```ts
+import { DataTypes, Model, Sequelize } from '@flutry/database-sequlize';
+
+export default class Test extends Model {
+  static initialize(sequelize: Sequelize) {
+    Test.init({
+      id: { type: DataTypes.STRING, primaryKey: true },
+      message: { type: DataTypes.STRING, allowNull: false },
+    }, { sequelize, tableName: 'test', timestamps: false });
+  }
+}
+```
+
+Use Test.findOne(), findAll(), findByPk(), create(), update(), destroy(), and count().
+Queries return native Sequelize results; call `get({ plain: true })` where a plain
+object is needed. See [CRUD](/docs/v1.1.0/packages/database-crud) and
+[Models](/docs/v1.1.0/packages/database-models).

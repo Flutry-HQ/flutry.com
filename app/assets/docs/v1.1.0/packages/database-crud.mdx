@@ -1,0 +1,113 @@
+# Database CRUD and transactions
+
+Use native Sequelize Model methods. The former findOne/findAll/create/update and
+other package-level helpers are removed. Keep domain logic in services and import
+your application's initialized models.
+
+## Example model
+
+```ts
+// src/models/user.model.ts
+import { DataTypes, Model, type Sequelize } from '@flutry/database-sequlize';
+
+export default class User extends Model {
+  declare id: string;
+  declare email: string;
+  declare displayName: string;
+  declare active: boolean;
+  static initialize(sequelize: Sequelize) {
+    User.init({
+      id: { type: DataTypes.STRING, primaryKey: true },
+      email: { type: DataTypes.STRING, allowNull: false, unique: true },
+      displayName: { type: DataTypes.STRING, allowNull: false },
+      active: { type: DataTypes.BOOLEAN, defaultValue: true },
+    }, { sequelize, tableName: 'users', timestamps: true });
+  }
+}
+```
+
+## Create and read
+
+The following service snippets assume User from that model and successful
+database.ready. Verify actual database startup and schema migrations in your own
+integration environment; see [Database](/docs/v1.1.0/packages/database).
+
+```ts
+import User from '../models/user.model';
+
+async function examples() {
+  const created = await User.create({
+    id: 'user-1', email: 'ada@example.com', displayName: 'Ada Lovelace', active: true,
+  });
+  const plain = created.get({ plain: true });
+  const byId = await User.findByPk('user-1');
+  const byEmail = await User.findOne({ where: { email: 'ada@example.com' } });
+  const users = await User.findAll({
+    where: { active: true },
+    attributes: ['id', 'email', 'displayName'],
+    order: [['displayName', 'ASC']], limit: 25, offset: 0,
+  });
+  const alreadyRegistered = (await User.count({ where: { email: 'ada@example.com' } })) > 0;
+  const total = await User.count({ where: { active: true } });
+  return { plain, byId, byEmail, users: users.map(row => row.get({ plain: true })), alreadyRegistered, total };
+}
+```
+
+findOne/findByPk return model instances or null. findAll returns model instances,
+unlike the removed helpers' plain object arrays. Convert explicitly at boundaries.
+
+## Update and delete
+
+```ts
+import User from '../models/user.model';
+
+async function modifyUser() {
+  const [affectedCount] = await User.update(
+    { displayName: 'Augusta Ada King' }, { where: { id: 'user-1' } },
+  );
+  const deletedRows = await User.destroy({ where: { id: 'user-1' } });
+  return { affectedCount, deletedRows };
+}
+```
+
+Do not expect updated row objects from MySQL/MariaDB update(). Query explicitly if
+needed. destroy() returns a deleted row count; always supply an intentional filter.
+
+## Transactions
+
+```ts
+import { Connect } from '@flutry/database-sequlize';
+import User from '../models/user.model';
+
+async function renameInTransaction() {
+  return Connect.sequelize.transaction(async (tx) => {
+    const user = await User.findByPk('user-1', { transaction: tx, lock: true });
+    if (!user) throw new Error('User not found');
+    await user.update({ displayName: 'Ada' }, { transaction: tx });
+    return user.get({ plain: true });
+  });
+}
+```
+
+Pass the same transaction to every participating operation, including related
+models. A resolved callback commits; a rejected callback rolls back. Do not catch
+and suppress an error unless the transaction should still commit.
+
+## Operators
+
+```ts
+import { Op } from '@flutry/database-sequlize';
+import User from '../models/user.model';
+
+async function recentUsers() {
+  return User.findAll({
+    where: {
+      createdAt: { [Op.gte]: new Date('2026-01-01') },
+      email: { [Op.like]: '%@example.com' },
+    },
+  });
+}
+```
+
+Use parameterized ORM conditions and validate request input; the framework does
+not add an authorization layer around these native queries.

@@ -1,0 +1,74 @@
+# Quick start
+
+Create a project with `npx @flutry/cli new`. Leave Redis, RateLimit, and the database
+disabled for the smallest HTTP-only setup. The generated starter uses tsx.
+
+```ts
+import 'dotenv/config';
+import { HttpServer } from '@flutry/server';
+
+const server = new HttpServer({
+  trustProxy: false,
+  logger: false,
+  compression: true,
+  helmet: true,
+  prefix: process.env.PREFIX_API ?? '/',
+  socket: false,
+  rateLimit: {
+    enabled: process.env.RATE_LIMIT_ENABLED === 'true',
+    max: Number(process.env.RATE_LIMIT_MAX ?? 100),
+    window: Number(process.env.RATE_LIMIT_WINDOW ?? 60),
+    redis: process.env.RATE_LIMIT_REDIS === 'true',
+    name: process.env.RATE_LIMIT_NAME ?? 'my-app:global',
+  },
+});
+
+async function start(): Promise<void> {
+  await server.listen(Number(process.env.PORT ?? 1337), process.env.HOST ?? '127.0.0.1');
+}
+void start().catch((error) => {
+  console.error('Startup failed', error);
+  process.exitCode = 1;
+});
+process.once('SIGTERM', () => {
+  void server.close().catch(console.error);
+});
+```
+
+## Define a route
+
+Create src/routes/index.route.ts:
+
+```ts
+import { Router } from '@flutry/server';
+
+export default class IndexRoute extends Router {
+  constructor() {
+    super();
+    this.get('/', (ctx) => ctx.send({ status: 200, message: 'Hello from Flutry!' }));
+  }
+}
+```
+
+With PREFIX_API=/ this responds at GET /. With /api it responds at GET /api.
+
+## Optional database
+
+Construct one Connect manager, retain it, await its ready Promise before listening,
+and close it at shutdown. Awaiting the constructor itself does not wait for readiness.
+See [Database](/docs/v1.1.0/packages/database) for the public lifecycle and
+development versus production schema behavior. Test startup and failure recovery
+against your actual database before production deployment.
+
+## Run and verify
+
+```bash
+npm run typecheck
+npm run dev
+curl http://127.0.0.1:1337/
+curl http://127.0.0.1:1337/health
+```
+
+The unprefixed health endpoint returns `{ status: 200, message: 'Pong' }`; it is a
+process/liveness response, not a live database or Redis readiness probe. Global
+RateLimit excludes health and favicon requests by default.

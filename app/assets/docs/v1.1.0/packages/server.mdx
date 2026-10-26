@@ -1,0 +1,76 @@
+`@flutry/server` is the HTTP foundation of Flutry. It wraps Fastify, registers compression and security plugins, optional global rate limits, and discovers route classes, and can attach Socket.IO to the same HTTP server.
+
+```bash
+npm install @flutry/server
+```
+
+## Public exports
+
+```ts
+import { Ctx, HttpServer, RateLimit, RouteLoader, Router, getSocket, sendRoom } from '@flutry/server';
+import type { CtxHandler, HttpMethod, HttpOptions, RouteDefinition, RouteLoaderOptions, RoutePlugin } from '@flutry/server';
+```
+
+`HttpServer` exposes the underlying Fastify instance as `app` and the initialized Socket.IO wrapper as `socket` when sockets are enabled.
+
+## Server options
+
+`HttpOptions` extends Fastify's `FastifyServerOptions` and adds the Flutry options used by the implementation:
+
+| Option        | Purpose                                                 |
+| ------------- | ------------------------------------------------------- |
+| `prefix`      | Global prefix applied to discovered routes              |
+| `socket`      | `false` to disable sockets, or Socket.IO server options |
+| `compression` | Enabled unless explicitly false      |
+| `helmet`      | Enabled unless explicitly false           |
+| `logger`      | Passed to Fastify logger configuration                  |
+| `trustProxy`  | Controls Fastify proxy trust behavior                   |
+
+All Flutry fields are optional. Native Fastify options are forwarded after removing Flutry-specific fields. `trustProxy` and `logger` default to false and retain Fastify's native configuration types. Socket.IO is enabled when `socket` is omitted; pass false to disable it. Rate limiting is disabled by default.
+
+```ts
+const server = new HttpServer({
+  prefix: '/api',
+  compression: true,
+  helmet: true,
+  trustProxy: false,
+  socket: false,
+});
+
+async function run(): Promise<void> {
+  await server.listen(1337, '0.0.0.0');
+  // Call close from your controlled shutdown path.
+}
+void run().catch(console.error);
+```
+
+## Lifecycle
+
+Construction configures Fastify, the route loader, plugins, Socket.IO, and lifecycle handlers. `listen` loads routes and Socket.IO utility files, then starts Fastify. `close` gracefully closes the HTTP server and the socket wrapper.
+
+## Optional global rate limiting
+
+```ts
+import { HttpServer } from '@flutry/server';
+
+const server = new HttpServer({
+  socket: false,
+  rateLimit: { enabled: true, max: 100, window: 60, redis: false },
+});
+```
+
+Global checks run at onRequest. Redis-backed global readiness is awaited in
+onReady; cleanup runs in onClose. Route-specific rules are independent. See the
+[complete RateLimit API](/docs/v1.1.0/packages/rate-limit) for exclusions, names,
+failure behavior, and headers.
+
+Socket.IO closes in preClose before HTTP draining, and its global reference is
+cleared in onClose. `server.close()` runs registered hooks; it does not automatically
+own arbitrary database or Redis resources created by application code.
+
+## Runtime layout
+
+HttpServer still resolves routes from `process.cwd()/src/routes` and socket
+utilities from `src/utils/socket`. Recognizing JavaScript route extensions does
+not select dist automatically. The supported starter runs source through tsx in
+development and production. Verify a custom compiled deployment separately.

@@ -1,0 +1,45 @@
+`encryption` combines Argon2id password hashing with AES-256-GCM encryption. Password hashes returned by `hashPassword` are encrypted before storage, so both `SECRET_KEY` and `SECRET_SALT` are required.
+
+```ts
+import { encryption } from '@flutry/common';
+
+const storedPassword = await encryption.hashPassword('correct horse battery staple');
+const valid = await encryption.comparePassword('correct horse battery staple', storedPassword);
+```
+
+For arbitrary text, use symmetric encryption directly:
+
+```ts
+const encrypted = await encryption.encrypt('private value');
+const plainText = await encryption.decrypt(encrypted);
+
+const withCustomSecret = await encryption.encrypt('private value', 'service-specific-secret');
+const restored = await encryption.decrypt(withCustomSecret, 'service-specific-secret');
+```
+
+## Behavior
+
+- Password hashing uses Argon2id with the implementation's fixed cost settings.
+- Text encryption uses AES-256-GCM and a new random 12-byte IV per call.
+- The encoded payload contains IV, authentication tag, and ciphertext as Base64.
+- `comparePassword` returns `false` for mismatches and verification/decryption failures.
+- `encrypt` and `decrypt` return `Promise<string>` and reject on missing configuration or failed authentication. Await them inside an async function.
+
+A custom secret replaces `SECRET_KEY`, but `SECRET_SALT` remains required because the key is derived with scrypt.
+
+## Derivation, caching, and compatibility
+
+scrypt runs asynchronously. Identical pending derivations share a Promise;
+completed keys are cached for ten minutes with a maximum of 100 entries. Cached
+buffers are wiped on expiration, eviction, and `encryption.clearCache()`. That
+method clears completed entries; it does not cancel pending derivations. Bound
+application concurrency when accepting many distinct secrets.
+
+The Base64 format remains 12-byte IV, 16-byte authentication tag, then ciphertext.
+Existing ciphertext and encrypted password hashes remain readable with the same
+secret and salt. Argon2id uses time cost 6, memory cost 131,072 KiB, and parallelism
+2; provision memory and limit concurrent password operations.
+
+The package root exports the `encryption` singleton, not the internal
+`EncryptionService` class. Await examples in an async route or function; the
+CommonJS starter does not support top-level await.

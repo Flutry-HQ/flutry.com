@@ -1,0 +1,93 @@
+# Redis lifecycle
+
+Use the lazy redis singleton. Explicit readiness is useful before accepting work;
+otherwise each command waits for the service's connection readiness.
+
+```ts
+import { redis } from '@flutry/redis';
+
+async function useCache() {
+  await redis.connect();
+  await redis.set('flags', { beta: true, rollout: 25 });
+  return redis.get<{ beta: boolean; rollout: number }>('flags');
+}
+```
+
+## Connection and retry behavior
+
+Client construction uses lazyConnect=true, enableOfflineQueue=false, a ten-second
+connect/readiness deadline, a five-second command timeout, and maxRetriesPerRequest
+of 3. Concurrent connection calls share one Promise. Connecting, connect, and
+reconnecting are treated as transitional states.
+
+Background retry delays increase by 200 ms per attempt, capped at three seconds.
+The wrapper bounds a caller's readiness wait; failures reject and discard the
+failed client. There is no automatic fallback to an in-memory cache. A later call
+may create a fresh client.
+
+Offline queuing is disabled, so loss of readiness or a transport error can reject
+a command. An interrupted write might already have executed; do not blindly retry
+non-idempotent commands. ioredis reconnect/replay behavior does not provide an
+exactly-once command guarantee.
+
+## JSON and TTL
+
+set uses JSON.stringify, get uses JSON.parse. Objects, arrays, strings, finite
+numbers, booleans, and null are ordinary JSON data. Runtime validation belongs to
+the application; `get<T>` does not validate a schema.
+
+```ts
+import { redis } from '@flutry/redis';
+
+async function oneTimeToken() {
+  await redis.set('one-time-token', { value: 'example-token' }, 60);
+  const present = await redis.exists('one-time-token');
+  await redis.expire('one-time-token', 30);
+  return { present, ttl: await redis.ttl('one-time-token') };
+}
+```
+
+Expiry values must be positive safe integer seconds. Omit a TTL to create a key
+without expiration; zero does not mean no TTL. Invalid existing JSON rejects.
+
+## Prefixes
+
+```env
+REDIS_PREFIX=my-app:
+```
+
+A call using session:1 operates on my-app:session:1. The prefix is read for each
+operation, so keep it stable for the service lifetime and consistent across replicas.
+
+## Shutdown and ownership
+
+```ts
+import { redis } from '@flutry/redis';
+import { HttpServer } from '@flutry/server';
+
+const server = new HttpServer({ socket: false });
+async function stop() {
+  try {
+    await server.close();
+  } finally {
+    await redis.disconnect();
+  }
+}
+process.once('SIGTERM', () => { void stop().catch(console.error); });
+```
+
+Concurrent disconnects share a shutdown operation. Shutdown waits for initialization,
+attempts QUIT with a two-second deadline, then disconnects the transport. It can
+therefore also spend the bounded readiness interval waiting for startup to settle.
+Connection event errors are logged; individual JSON/command rejections are not all
+automatically logged by this wrapper.
+
+CLI-selected Redis generates explicit ownership in startup/shutdown. Global
+Redis-backed RateLimit has its own readiness/lease hooks: it closes an owned
+connection after the final rule releases it, while a connection established by
+application code remains application-owned. Close route-specific Redis rules in
+their owner's onClose hook.
+
+An explicitly selected Redis quota fails closed with 503 on backend errors.
+Treating cache misses as optional business fallbacks is a separate application
+decision; do not apply a catch-to-null pattern to authorization or rate quotas.

@@ -1,0 +1,59 @@
+Flutry applications run on Node.js and TypeScript. The simplest path is the official CLI, which downloads the starter template and optionally installs dependencies.
+
+## Create a project with the CLI
+
+Install or run the CLI with your preferred package manager, then start the interactive generator:
+
+```bash
+npx @flutry/cli new
+```
+
+The generator asks for a folder name, package name, database settings, Socket.IO preference, optional Redis and RateLimit settings, package manager, and whether dependencies should be installed immediately. It supports npm, Yarn, and pnpm.
+
+<details>
+<summary>Manual package installation</summary>
+
+For an existing TypeScript project, install only the packages you need:
+
+```bash
+npm install @flutry/server @flutry/common
+npm install @flutry/database-sequlize
+npm install @flutry/redis
+```
+
+`@flutry/database-sequlize` uses Sequelize plus the `mariadb` and `mysql2` drivers. `@flutry/redis` uses ioredis.
+
+</details>
+
+## Build and run
+
+The starter projects use TypeScript and expose the following scripts:
+
+```bash
+npm run typecheck
+npm run dev
+npm start
+```
+
+Use the package manager selected during project creation for equivalent commands.
+
+> **Important**
+>
+> The server loads routes before it starts listening. A missing or invalid route module therefore fails startup rather than silently producing an incomplete application.
+
+## Release-candidate and runtime requirements
+
+The documentation version is a framework guide, not a coordinated npm version.
+Use matching, tested package artifacts for the candidate APIs. Check each package's
+manifest and your lockfile; this task does not publish packages or change versions.
+
+The starter has `dev`, `start`, `typecheck`, and test scripts. It has no build
+script: both dev and production execute src/main.ts through tsx. Library packages
+have `npm run build`; do not assume that means the starter deploys dist/main.js.
+Use a currently supported Node release satisfying all installed dependency engines;
+the local framework checks used Node 24.
+
+Redis is an optional peer of the server package. Selecting memory limits does not
+require it. CLI-generated Redis integration adds it only when selected. Follow the
+[CLI workflow](/docs/v1.1.0/cli/workflow) and review the
+[migration guide](/docs/v1.1.0) before updating an existing app.

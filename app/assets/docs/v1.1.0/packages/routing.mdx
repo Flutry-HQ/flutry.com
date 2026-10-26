@@ -1,0 +1,63 @@
+Routes are classes, not standalone handler functions. Extend `Router`, call `super()`, and register handlers in the constructor.
+
+```ts
+import { Router } from '@flutry/server';
+
+export default class UsersRoute extends Router {
+  constructor() {
+    super();
+
+    this.get('/', async (ctx) => {
+      return ctx.send({ items: [] });
+    });
+
+    this.post('/', async (ctx) => {
+      return ctx.status(201).send({ created: true });
+    });
+  }
+}
+```
+
+## HTTP methods
+
+`Router` provides `get`, `post`, `put`, `delete`, `patch`, `head`, and `options`. Each receives a route path and a `CtxHandler`. A handler can return any value or a promise.
+
+`RouteDefinition` contains the registered `method`, `path`, and `handler`. `HttpMethod` is the lowercase union of the supported method names.
+
+## File mapping
+
+The loader recursively imports files matching `.route.ts`, `.route.js`, `.route.mjs`, or `.route.cjs`. The default export must extend `Router`. `$` parameters are converted to Fastify parameters, so `$id.route.ts` declares `:id` at runtime.
+
+```text
+src/routes/
+  index.route.ts           -> /
+  users/user.route.ts      -> /users
+  users/$id.route.ts       -> /users/:id
+```
+
+A global prefix is normalized before joining. For example, `prefix: '/api'` plus `/users` becomes `/api/users`.
+
+## System handlers
+
+After application routes are loaded, Flutry registers a favicon handler, a health endpoint, a 404 handler, and an error handler. Do not create application routes that depend on private loader internals; use `Router` and `Ctx` as the stable application API.
+
+> **Failure behavior**
+>
+> A route without a default export, or a default export that does not extend `Router`, causes route loading to fail with an explicit error.
+
+## Hooks, errors, and protected handlers
+
+Use `server.app.addHook()` for native Fastify hooks; Router does not introduce a
+middleware/guard API or expose per-route schema options through its method helpers.
+Validate inputs in your application or use Fastify directly when needed.
+
+The system endpoints `/health` and `/favicon.ico` are not prefixed. Unknown routes
+return `{ status: 404, message: 'Not Found' }`. Errors use a statusCode of at least
+400 when supplied, otherwise 500; server-error messages are masked as
+`Internal Server Error`. Awaited handler rejections propagate. RateLimit quota
+errors preserve their headers and return 429 without being logged as application
+failures.
+
+Do not reserve duplicate system endpoints. Route and socket directory selection is
+described on the [Server page](/docs/v1.1.0/packages/server); filename recognition
+alone does not guarantee native CommonJS/ESM interoperability in a compiled layout.

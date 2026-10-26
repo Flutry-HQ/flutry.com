@@ -1,0 +1,71 @@
+# Deployment and release checks
+
+v1.1.0 is documentation for a release candidate. Package manifests still have their
+individual versions; this documentation update does not publish or certify them.
+See the [migration guide](/docs/v1.1.0) for known breaking changes.
+
+## Runtime and artifacts
+
+The starter runs TypeScript source using tsx in production:
+
+```bash
+npm run typecheck
+npm test
+npm start
+```
+
+It has no build script. Framework library packages use npm run build. Build and
+test the actual artifacts you intend to deploy; stale local dist or registry
+packages may not contain the APIs described here. Internal latest dependencies
+are intentional, so retain and review application lockfiles for reproducibility.
+
+HttpServer still discovers src/routes and src/utils/socket from the current
+working directory. The model loader prefers src/models if present, otherwise
+dist/models. A custom compiled-only deployment needs separate route-directory
+and module-format validation; recognized .js/.mjs/.cjs suffixes do not prove
+CommonJS/ESM import interoperability.
+
+## Database integration
+
+Connect passes its authenticated connection to Models and its type check passes.
+That does not replace live integration checks against your database. There is no
+public Connect.sync option; do not import private internals to invent one.
+
+Await ready, verify model/association errors reject startup, and
+manage schema changes with your existing migration tooling. Development always
+uses alter synchronization; production must never be pointed at development mode.
+
+## Redis and quota checks
+
+For Redis quotas, install a matching package exposing consumeRateLimit, set stable
+rule names and consistent settings across replicas, and test a disposable Redis.
+Memory quotas are independent per process and cannot enforce a shared VPS quota.
+
+Run normal traffic, exactly-at-quota requests, blocked traffic, window expiration,
+Redis loss/recovery, and shutdown tests. Storage failure must not silently admit
+requests or switch to memory. A readiness wait or failed command may have consumed
+quota before rejection.
+
+The current test scripts can exit successfully while discovering zero tests.
+Inspect the test count rather than treating exit code zero as coverage. Add or run
+an explicit integration suite against a disposable Redis to verify Lua behavior
+across independent clients/processes. Keep integration traffic off production.
+
+## Shutdown and health
+
+Close HTTP before application-owned pools/Redis, using finally so failures do not
+skip cleanup. Global RateLimit manages its own Redis leases; explicitly close
+route-specific Redis rules too. Socket.IO closes in preClose before HTTP draining.
+
+The /health response is a static liveness check, not a continuous dependency probe.
+Implement deployment-specific readiness checks using your application policy.
+
+## Security and operations
+
+- Restrict trustProxy to actual ingress addresses; never trust arbitrary forwarding headers.
+- Restrict Socket.IO CORS and authorize room joins and events.
+- Rotate secrets with a recovery plan; retain encryption keys/salts needed for old data.
+- Allocate Snowflake worker IDs, coordinate reuse, and use string storage.
+- Avoid sensitive URLs and log metadata; check log directory permissions.
+- Validate request bodies and auth claims in the application.
+- Use compatible Node/dependency engines and test the target operating system.

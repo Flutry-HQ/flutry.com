@@ -1,0 +1,74 @@
+# Redis
+
+The package wraps ioredis with lazy connection management, JSON values, key prefixes,
+bounded connection/command waits, and an atomic rate-limit operation.
+
+```bash
+npm install @flutry/redis
+```
+
+```ts
+import { redis } from '@flutry/redis';
+
+async function cacheUser() {
+  await redis.set('user:1', { id: '1', name: 'Ada' }, 60);
+  const user = await redis.get<{ id: string; name: string }>('user:1');
+  await redis.delete('user:1');
+  return user;
+}
+```
+
+The root exports the redis singleton and the RedisRateLimitResult type. It does
+not export redisService or a constructible RedisService class. Importing redis
+does not create an ioredis connection; first use or explicit connect() does.
+
+## Environment
+
+```env
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
+REDIS_PREFIX=
+```
+
+The service's host fallback is 127.0.0.1; the CLI writes localhost when selected.
+The port defaults to 6379; password and prefix are optional. There is no Redis
+enable boolean. Application startup decides whether to use the package.
+
+## Public API
+
+| Method | Result |
+| --- | --- |
+| connect() | Promise resolving after readiness |
+| `get<T>(key)` | Parsed JSON T or null |
+| set(key, value, ttlSeconds?) | Redis OK; optional positive integer seconds |
+| delete(key) | Deleted key count |
+| exists(key) | Boolean |
+| expire(key, ttlSeconds) | Boolean indicating expiry was set |
+| ttl(key) | Remaining seconds; -2 missing, -1 no expiration |
+| getConnectionStatus() | connected, status, mode ('single') |
+| disconnect() | Gracefully closes, then forces disconnect if needed |
+| consumeRateLimit(key, max, windowMilliseconds) | allowed, count, ttlMilliseconds |
+
+`get<T>()` is a TypeScript assertion, not runtime schema validation. JSON parse and
+serialization errors reject. Undefined/function root values, BigInt, and circular
+values cannot be stored as normal JSON values. TTL zero, negative, fractional,
+nonfinite, or unsafe integers are rejected.
+
+```ts
+import { redis } from '@flutry/redis';
+
+async function createSession() {
+  await redis.set('session:abc', { userId: 'user-1', scopes: ['read'] }, 3600);
+  return redis.ttl('session:abc');
+}
+```
+
+consumeRateLimit uses a single Lua operation and separate numeric counter keys.
+max and windowMilliseconds must be positive safe integers. Do not mix those keys
+with JSON cache keys. New keys receive TTL in SET; missing TTL is repaired before
+incrementing, and blocked counters do not extend expiration.
+
+Use [RateLimit](/docs/v1.1.0/packages/rate-limit) for hashed client keys, stable rule
+names, HTTP headers, and fail-closed behavior. Redis storage is optional; memory
+rules do not need this package. See [Redis lifecycle](/docs/v1.1.0/packages/redis-lifecycle).

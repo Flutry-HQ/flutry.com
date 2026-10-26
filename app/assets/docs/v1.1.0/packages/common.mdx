@@ -1,0 +1,37 @@
+The common package provides shared services used by the other Flutry packages.
+
+```bash
+npm install @flutry/common
+```
+
+```ts
+import { encryption, jwt, logger, snowflake } from '@flutry/common';
+```
+
+## Logger
+
+`logger` supports `error`, `warn`, `info`, `http`, and `debug`. Every method accepts a message and optional metadata. `error` also accepts an `Error` value or a message plus an error.
+
+```ts
+logger.info('User created', { userId: 'user-1' });
+logger.warn('Slow request', { durationMs: 250 });
+logger.error('Database request failed', new Error('Connection unavailable'), { operation: 'findUser' });
+logger.debug('Request metadata', { requestId: 'req-1' });
+```
+
+Outside production the default level is `debug`; production defaults to `info`. `LOG_LEVEL` overrides this. The root exports only `logger`, `jwt`, `snowflake`, and `encryption`. Logger module helpers are not re-exported from the root.
+
+## Snowflake IDs
+
+`snowflake.generate()` returns a string identifier composed of a custom-epoch timestamp, machine identifier, and per-millisecond sequence. Strings are intentional: the value grows beyond 64 bits as well as beyond JavaScript's safe integer range.
+
+```ts
+const id = snowflake.generate();
+```
+
+The internal `SnowflakeService` class is not a root export; use `snowflake`.
+
+## More APIs
+
+- [JWT](/docs/v1.1.0/packages/common-jwt)
+- [Encryption](/docs/v1.1.0/packages/common-encryption)

@@ -1,0 +1,87 @@
+Flutry reads environment variables through `dotenv` when the application imports `dotenv/config`. The starter's `.env.example` is the canonical baseline.
+
+```dotenv
+# Server
+PORT=1337
+HOST=127.0.0.1
+PREFIX_API=/
+
+# Database
+DB=false
+DB_HOST=
+DB_PORT=
+DB_NAME=
+DB_USER=
+DB_PASS=
+DB_DIALECT=
+
+# Secrets
+SECRET_KEY=your_secret_key
+SECRET_SALT=your_secret_SALT
+JWT_SECRET_KEY=your_jwt_secret
+```
+
+## Server values
+
+- `PORT` is converted to a number and passed to `server.listen`.
+- `HOST` controls the interface passed to `listen`.
+- `PREFIX_API` becomes `HttpOptions.prefix` in the starter.
+
+## Database values
+
+The starter enables the database only when `DB=true`. `DB_DIALECT` accepts `mariadb` or `mysql`. The database package itself receives a typed `DatabaseOptions` object; it does not read these names directly.
+
+## Security values
+
+`@flutry/common` reads `SECRET_KEY` and `SECRET_SALT` for AES-256-GCM encryption. JWT uses `JWT_SECRET_KEY` and optionally `JWT_EXPIRATION_TIME` (default `1h`). Missing secrets cause the relevant operation to throw.
+
+> **Production**
+>
+> Replace every example secret with a secret stored outside source control. `decodeToken` is not a signature check, and encrypted values cannot be recovered after losing the secret and salt.
+
+## Redis values
+
+`@flutry/redis` reads `REDIS_HOST` (service fallback `127.0.0.1`; CLI selection writes `localhost`), `REDIS_PORT` (default `6379`), `REDIS_PASSWORD`, and `REDIS_PREFIX`.
+
+## Optional RateLimit and Redis
+
+```env
+RATE_LIMIT_ENABLED=false
+RATE_LIMIT_MAX=100
+RATE_LIMIT_WINDOW=60
+RATE_LIMIT_REDIS=false
+RATE_LIMIT_NAME=my-app:global
+
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
+REDIS_PREFIX=
+```
+
+Redis connection values configure the singleton; their presence alone does not
+connect it. The base starter acquires Redis only for an enabled Redis-backed global
+rule. Selecting Redis in the CLI additionally generates explicit startup/shutdown
+calls, even if RateLimit is disabled or uses memory. Disabled Redis integration
+omits REDIS_* variables from CLI-generated files.
+
+RATE_LIMIT_ENABLED=true enables the global rule. RATE_LIMIT_REDIS=true selects
+Redis storage only when that rule is enabled. Without explicit Redis storage,
+limits use memory and need no Redis installation. Redis storage failures never
+fall back to memory. Quota/window values are positive safe integers, and window
+seconds must be safely representable in milliseconds; invalid numeric values
+fail configuration even when limiting is disabled.
+
+RATE_LIMIT_NAME identifies one logical Redis rule across replicas. Use the same
+name and settings on replicas and different names for unrelated rules. Names are
+hashed in counter keys after REDIS_PREFIX.
+
+## Deployment details
+
+NODE_ENV is supplied by the starter scripts: development for dev, production for
+start. Set LOG_LEVEL before importing the framework; common logger and JWT settings
+are captured at module initialization. Configure SNOWFLAKE_MACHINE_ID uniquely
+per active generator if distributed ID collision tolerance requires it.
+
+Blank database values do not activate nullish-coalescing defaults. Set all DB
+connection fields and a valid DB_DIALECT before enabling DB=true. Read the
+[database lifecycle](/docs/v1.1.0/packages/database).
