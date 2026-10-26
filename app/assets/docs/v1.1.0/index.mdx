@@ -43,25 +43,25 @@ historical index files; those are identified as documentation corrections.
   integrations are enabled.
 - Redis-selected generated projects add the dependency and await connection before
   listening, then disconnect in shutdown cleanup. Memory-only projects need no Redis.
-- The starter exposes RATE_LIMIT_* settings and retains optional database startup
+- The starter exposes RATE*LIMIT*\* settings and retains optional database startup
   and controlled shutdown.
 
 ## Improvements confirmed in source
 
-| Area | Current implementation |
-| --- | --- |
-| HTTP configuration | Native Fastify options forwarded; Flutry fields optional; trustProxy/logger retain native types |
-| Starter security | Proxy trust disabled by default; configure actual ingress explicitly |
-| Database ownership | One manager per process, owned failed-pool cleanup, shared reconnect work, ready/close lifecycle |
-| Database timezone | Fractional-hour offset arithmetic corrected |
-| Redis | Lazy client, shared connection/shutdown promises, transitional readiness states, bounded connection/command/QUIT waits |
-| Encryption | Async scrypt, identical pending work shared, completed key cache bounded to 100 entries with ten-minute expiry |
-| Snowflake | No busy-wait; logical sequence overflow and rollback handling; optional worker IDs; decimal width documented accurately |
-| Logger | BigInt/circular formatting and transport error handlers; failed file transport removed |
-| Routes | Compiled filename suffixes recognized; invalid modules reject startup; production URL logging strips query strings |
-| Socket.IO | preClose cleanup before HTTP draining; onClose global-reference release |
-| CLI | Private staging, exclusive target reservation, owned cleanup, quoted environment values, unread stdout pipe removed |
-| Types/exports | Public RateLimit contracts added; existing context and actual root exports clarified |
+| Area               | Current implementation                                                                                                  |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| HTTP configuration | Native Fastify options forwarded; Flutry fields optional; trustProxy/logger retain native types                         |
+| Starter security   | Proxy trust disabled by default; configure actual ingress explicitly                                                    |
+| Database ownership | One manager per process, owned failed-pool cleanup, shared reconnect work, ready/close lifecycle                        |
+| Database timezone  | Fractional-hour offset arithmetic corrected                                                                             |
+| Redis              | Lazy client, shared connection/shutdown promises, transitional readiness states, bounded connection/command/QUIT waits  |
+| Encryption         | Async scrypt, identical pending work shared, completed key cache bounded to 100 entries with ten-minute expiry          |
+| Snowflake          | No busy-wait; logical sequence overflow and rollback handling; optional worker IDs; decimal width documented accurately |
+| Logger             | BigInt/circular formatting and transport error handlers; failed file transport removed                                  |
+| Routes             | Compiled filename suffixes recognized; invalid modules reject startup; production URL logging strips query strings      |
+| Socket.IO          | preClose cleanup before HTTP draining; onClose global-reference release                                                 |
+| CLI                | Private staging, exclusive target reservation, owned cleanup, quoted environment values, unread stdout pipe removed     |
+| Types/exports      | Public RateLimit contracts added; existing context and actual root exports clarified                                    |
 
 These improvements do **not** establish universal compiled CommonJS/ESM support or
 live database success. Read the compatibility and validation notes below.
@@ -126,9 +126,15 @@ async function findUser(email: string) {
 }
 async function createUser() {
   return Connect.sequelize.transaction(async (tx) => {
-    const user = await User.create({
-      id: 'user-1', email: 'ada@example.com', displayName: 'Ada', active: true,
-    }, { transaction: tx });
+    const user = await User.create(
+      {
+        id: 'user-1',
+        email: 'ada@example.com',
+        displayName: 'Ada',
+        active: true,
+      },
+      { transaction: tx },
+    );
     return user.get({ plain: true });
   });
 }
@@ -159,8 +165,12 @@ Now retain ownership and await the public readiness Promise:
 import { Connect } from '@flutry/database-sequlize';
 
 const database = new Connect({
-  host: 'localhost', port: 3306, database: 'flutry',
-  username: 'app_user', password: process.env.DB_PASS ?? '', dialect: 'mariadb',
+  host: 'localhost',
+  port: 3306,
+  database: 'flutry',
+  username: 'app_user',
+  password: process.env.DB_PASS ?? '',
+  dialect: 'mariadb',
 });
 async function initializeDatabase() {
   await database.ready;
@@ -347,14 +357,17 @@ RATE_LIMIT_NAME=my-app:global
 ```
 
 For distributed quotas, install a matching Redis package, use a stable rule name,
-and set RATE_LIMIT_REDIS=true with valid REDIS_* connection settings. A failed
+and set RATE*LIMIT_REDIS=true with valid REDIS*\* connection settings. A failed
 Redis quota must reject startup or requests; it must not switch to memory.
 
 ```ts
 import { RateLimit } from '@flutry/server';
 
 const loginLimit = new RateLimit({
-  max: 5, window: 60, redis: true, name: 'my-app:auth:login',
+  max: 5,
+  window: 60,
+  redis: true,
+  name: 'my-app:auth:login',
 });
 // In an async Router handler:
 // await loginLimit.handle(ctx);
@@ -369,12 +382,11 @@ npm test
 ```
 
 The starter runs source through tsx and has no build script. Framework packages
-have npm run build. Do not claim build success from typechecking alone.
-10. Verify normal/blocked traffic, headers, expiration, Redis outage/recovery,
-    shutdown with sockets/requests, dependency readiness, model failures, historical
-    ciphertext, and ID storage on the intended production runtime. Release only
-    after compatibility and integration behavior are verified. Check discovered
-    test counts: a successful runner with zero tests does not establish coverage.
+have npm run build. Do not claim build success from typechecking alone. 10. Verify normal/blocked traffic, headers, expiration, Redis outage/recovery,
+shutdown with sockets/requests, dependency readiness, model failures, historical
+ciphertext, and ID storage on the intended production runtime. Release only
+after compatibility and integration behavior are verified. Check discovered
+test counts: a successful runner with zero tests does not establish coverage.
 
 ## Migration checklist
 
