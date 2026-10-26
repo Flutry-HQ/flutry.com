@@ -8,7 +8,7 @@ export async function loader(_args: LoaderFunctionArgs) {
     throw new Response('No documentation versions configured', { status: 500 });
   }
 
-  const latest = meta.versions.find((version) => version.slug === 'latest') ?? meta.versions[0];
+  const latest = meta.versions.find((version) => version.slug === 'v1.1.0') ?? meta.versions[0];
 
   throw redirect(`/docs/${latest.slug}`);
 }
