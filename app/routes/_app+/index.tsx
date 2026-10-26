@@ -127,14 +127,14 @@ function Hero() {
 
           <div className="mt-9 flex flex-wrap items-center gap-4">
             <Link
-              to="/docs/latest/getting-started/quick-start"
+              to="/docs/v1.1.0/getting-started/quick-start"
               className="group inline-flex items-center gap-2 rounded-sm bg-[var(--accent)] px-5 py-3 text-sm font-medium text-white transition-colors duration-200 hover:bg-[#6B8AFF]"
             >
               <Rocket size={16} strokeWidth={2} />
               Get started
             </Link>
             <Link
-              to="/docs/latest"
+              to="/docs/v1.1.0"
               className="inline-flex items-center gap-2 rounded-sm border border-[var(--line)] px-5 py-3 text-sm font-medium text-[var(--ink)] transition-colors duration-200 hover:border-white/20 hover:bg-white/[0.03]"
             >
               Read the docs
@@ -459,14 +459,14 @@ function FinalCta() {
         <p className="mx-auto mt-4 max-w-md text-[var(--ink-dim)]">Install the CLI and have a running project before your coffee's ready.</p>
         <div className="mt-9 flex flex-wrap items-center justify-center gap-4">
           <Link
-            to="/docs/latest/getting-started/quick-start"
+            to="/docs/v1.1.0/getting-started/quick-start"
             className="inline-flex items-center gap-2 rounded-sm bg-[var(--accent)] px-5 py-3 text-sm font-medium text-white transition-colors duration-200 hover:bg-[#6B8AFF]"
           >
             <Rocket size={16} strokeWidth={2} />
             Get started
           </Link>
           <Link
-            to="/docs/latest"
+            to="/docs/v1.1.0"
             className="inline-flex items-center gap-2 rounded-sm border border-[var(--line)] px-5 py-3 text-sm font-medium text-[var(--ink)] transition-colors duration-200 hover:border-white/20 hover:bg-white/[0.03]"
           >
             Documentation
